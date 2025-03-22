@@ -245,9 +245,10 @@ class MainWindow(Gtk.Window):
         self.main_box.pack_start(scrolled_window, False, False, 0)
 
     def on_category_clicked(self, category, group):
-        # Remove active state from all categories in the same group
-        for widget in self.category_widgets[group]:
-            widget.get_style_context().remove_class("dark-category-button-active")
+        # Remove active state from all widgets in all groups
+        for group_name in self.category_widgets:
+            for widget in self.category_widgets[group_name]:
+                widget.get_style_context().remove_class("dark-category-button-active")
 
         # Add active state to the clicked category
         display_title = self.category_groups[group][category]
