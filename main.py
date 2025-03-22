@@ -16,6 +16,9 @@ class MainWindow(Gtk.Window):
     def __init__(self):
         super().__init__()
 
+        # Store search results as an instance variable
+        self.search_results = []  # Initialize empty list
+
         # Set window size
         self.set_default_size(1280, 720)
 
@@ -89,73 +92,84 @@ class MainWindow(Gtk.Window):
         # Create panels
         self.create_panels()
 
-        self.refresh_database()
-
         # Select Trending by default
         self.select_default_category()
 
-    def refresh_database(self):
-        # Try to get apps from Flathub API if internet is available
-        if self.check_internet():
+        self.refresh_data()
 
-            total_categories = sum(len(categories) for categories in self.category_groups.values())
-            current_category = 0
-            msg = "Updating metadata, please wait..."
-            dialog = Gtk.Dialog(
-                title=msg,
-                parent=self,
-                modal=True,
-                destroy_with_parent=True
-            )
+    def refresh_data(self):
 
-            # Set dialog size
-            dialog.set_size_request(400, 100)
+        total_categories = sum(len(categories) for categories in self.category_groups.values())
+        current_category = 0
+        msg = "Updating metadata, please wait..."
+        dialog = Gtk.Dialog(
+            title=msg,
+            parent=self,
+            modal=True,
+            destroy_with_parent=True
+        )
 
-            # Create progress bar
-            progress_bar = Gtk.ProgressBar()
-            progress_bar.set_text(msg)
+        # Set dialog size
+        dialog.set_size_request(400, 100)
 
-            # Add progress bar to dialog
-            dialog.vbox.pack_start(progress_bar, True, True, 0)
-            dialog.vbox.set_spacing(12)
+        # Create progress bar
+        progress_bar = Gtk.ProgressBar()
+        progress_bar.set_text(msg)
 
-            # Show the dialog and all its children
-            dialog.show_all()
+        # Add progress bar to dialog
+        dialog.vbox.pack_start(progress_bar, True, True, 0)
+        dialog.vbox.set_spacing(12)
 
-            for group_name, categories in self.category_groups.items():
-                # Process categories one at a time to keep GUI responsive
-                for category, title in categories.items():
-                    api_data = self.fetch_flathub_category_apps(category)
-                    if api_data:
-                        apps = api_data['hits']
+        # Show the dialog and all its children
+        dialog.show_all()
 
-                        # Create database if it doesn't exist
-                        db_path = 'flatshop_db'
-                        create_repo_table(db_path, 'flathub')
+        # Search for each app in local repositories
+        searcher = AppstreamSearcher()
+        searcher.add_installation(Flatpak.Installation.new_user())
 
-                        # Search for each app in local repositories
-                        searcher = AppstreamSearcher()
-                        searcher.add_installation(Flatpak.Installation.new_user())
+        for group_name, categories in self.category_groups.items():
+            # Process categories one at a time to keep GUI responsive
+            for category, title in categories.items():
 
-                        for app in apps:
-                            app_id = app['app_id']
-                            # Search for the app in local repositories
-                            search_results = searcher.search_flatpak(app_id, 'flathub')
+                # Current offline-only mode. Later we will check metadata date and refresh if need
+                apps = searcher.get_all_apps('flathub')
+                for app in apps:
+                    details = app.get_details()
+                    if category in details['categories']:
+                        search_result = searcher.search_flatpak(details['name'], 'flathub')
+                        self.search_results.extend(search_result)
 
-                            # Store category results in database
-                            self.update_database(category, db_path, app_id, search_results)
+                # Planned code for metadata refresh, not ready yet
+                # Try to get apps from Flathub API if internet is available
+                #if self.check_internet():
+                #    api_data = self.fetch_flathub_category_apps(category)
+                #    if api_data:
+                #        apps = api_data['hits']
+                #
+                #        for app in apps:
+                #            app_id = app['app_id']
+                #            # Search for the app in local repositories
+                #            search_result = searcher.search_flatpak(app_id, 'flathub')
+                #            self.search_results.extend(search_result)
+                #else:
+                #    apps = searcher.get_all_apps('flathub')
+                #    for app in apps:
+                #        details = app.get_details()
+                #        if category in details['categories']:
+                #            search_result = searcher.search_flatpak(details['name'], 'flathub')
+                #            self.search_results.extend(search_result)
 
-                    current_category += 1
+                current_category += 1
 
-                    # Update progress bar
-                    progress = (current_category / total_categories) * 100
-                    progress_bar.set_fraction(progress / 100)
+                # Update progress bar
+                progress = (current_category / total_categories) * 100
+                progress_bar.set_fraction(progress / 100)
 
-                    # Force GTK to process events
-                    while Gtk.events_pending():
-                        Gtk.main_iteration_do(False)
+                # Force GTK to process events
+                while Gtk.events_pending():
+                    Gtk.main_iteration_do(False)
 
-            dialog.destroy()
+        dialog.destroy()
 
     def create_panels(self):
         # Create left panel with grouped categories
@@ -280,127 +294,64 @@ class MainWindow(Gtk.Window):
             print(f"Error fetching apps: {str(e)}")
             return None
 
-    def update_collection_status(self, category, db_path, app_id):
-        """Updates the trending status for a specific application."""
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        category = category.replace('-', '_').lower()
-
-        # Use string formatting to properly identify the column name
-        query = f"""
-            UPDATE flathub
-            SET {category} = 1
-            WHERE id = '{app_id}'
-        """
-
-        try:
-            cursor.execute(query)
-            conn.commit()
-            print(f"Collection {category} updated for app_id: {app_id}")
-        except sqlite3.Error as e:
-            print(f"Error updating database: {str(e)}")
-        finally:
-            conn.close()
-
-    def update_database(self, category, db_path, app_id, search_results):
-        """Update database."""
-
-        # Process each app
-        for result in search_results:
-            app_data = result.get_details()
-
-            # Store app data
-            if category in self.category_groups['categories']:
-                store_app_data(db_path, 'flathub', app_data)
-
-            if category in self.category_groups['collections']:
-                self.update_collection_status(category, db_path, app_id)
-
     def show_category_apps(self, category):
         # Clear existing content
         for child in self.right_container.get_children():
             child.destroy()
 
-        # Now pull the new info from our local database
-        try:
-            conn = sqlite3.connect('flatshop_db')
-            cursor = conn.cursor()
-            if category in self.category_groups['categories']:
-                cursor.execute("""
-                    SELECT id, name, summary, description, icon_path_64
-                    FROM flathub
-                    WHERE ? IN (SELECT value FROM json_each(categories))
-                    ORDER BY name ASC
-                """, (category,))
-            elif category in self.category_groups['collections']:
-                category = category.replace('-', '_').lower()
-                # Use string formatting to properly identify the column name
-                query = f"""
-                    SELECT id, name, summary, description, icon_path_64
-                    FROM flathub
-                    WHERE {category} = 1
-                    ORDER BY name ASC
-                """
-                print(query)
-                cursor.execute(query)
+        # Filter apps based on category
+        apps = [app for app in self.search_results if category in app.get_details()['categories']]
 
+        # Display each application
+        for app in apps:
+            details = app.get_details()
 
-            # Display each application
-            for id, name, summary, description, icon_path_64 in cursor.fetchall():
-                # Create application container
-                app_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-                app_container.set_spacing(12)
-                app_container.set_margin_top(6)
-                app_container.set_margin_bottom(6)
+            # Create application container
+            app_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            app_container.set_spacing(12)
+            app_container.set_margin_top(6)
+            app_container.set_margin_bottom(6)
 
-                # Add icon placeholder
-                icon_box = Gtk.Box()
-                icon_box.set_size_request(148, -1)
+            # Add icon placeholder
+            icon_box = Gtk.Box()
+            icon_box.set_size_request(148, -1)
 
-                # Create and add the icon
-                icon = Gtk.Image.new_from_file(f"{icon_path_64}")
-                icon.set_size_request(48, 48)  # Set a reasonable size for the icon
-                icon_box.pack_start(icon, True, True, 0)  # Add icon to the box
+            # Create and add the icon
+            icon = Gtk.Image.new_from_file(f"{details['icon_path_64']}/{details['icon_filename']}")
+            icon.set_size_request(48, 48)  # Set a reasonable size for the icon
+            icon_box.pack_start(icon, True, True, 0)  # Add icon to the box
 
-                # Create right side layout for text
-                right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-                right_box.set_spacing(4)
-                right_box.set_hexpand(True)
+            # Create right side layout for text
+            right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            right_box.set_spacing(4)
+            right_box.set_hexpand(True)
 
-                # Add title
-                title_label = Gtk.Label(label=name)
-                title_label.get_style_context().add_class("title-1")
-                title_label.set_halign(Gtk.Align.START)
-                title_label.set_hexpand(True)
+            # Add title
+            title_label = Gtk.Label(label=details['name'])
+            title_label.get_style_context().add_class("title-1")
+            title_label.set_halign(Gtk.Align.START)
+            title_label.set_hexpand(True)
 
-                # Add summary
-                desc_label = Gtk.Label(label=summary)
-                desc_label.set_halign(Gtk.Align.START)
-                desc_label.set_hexpand(True)
-                desc_label.set_line_wrap(True)
-                desc_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
-                desc_label.get_style_context().add_class("dim-label")
+            # Add summary
+            desc_label = Gtk.Label(label=details['summary'])
+            desc_label.set_halign(Gtk.Align.START)
+            desc_label.set_hexpand(True)
+            desc_label.set_line_wrap(True)
+            desc_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
+            desc_label.get_style_context().add_class("dim-label")
 
-                # Add separator
-                separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+            # Add separator
+            separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
 
-                # Add to container
-                right_box.pack_start(title_label, False, False, 0)
-                right_box.pack_start(desc_label, False, False, 0)
-                app_container.pack_start(icon_box, False, False, 0)
-                app_container.pack_start(right_box, True, True, 0)
-                self.right_container.pack_start(app_container, False, False, 0)
-                self.right_container.pack_start(separator, False, False, 0)
+            # Add to container
+            right_box.pack_start(title_label, False, False, 0)
+            right_box.pack_start(desc_label, False, False, 0)
+            app_container.pack_start(icon_box, False, False, 0)
+            app_container.pack_start(right_box, True, True, 0)
+            self.right_container.pack_start(app_container, False, False, 0)
+            self.right_container.pack_start(separator, False, False, 0)
 
-        except sqlite3.Error as e:
-            error_label = Gtk.Label(label=f"Error loading applications: {str(e)}")
-            error_label.get_style_context().add_class("error-label")
-            error_label.set_halign(Gtk.Align.CENTER)
-            self.right_container.pack_start(error_label, False, False, 0)
-
-        finally:
-            conn.close()
-            self.right_container.show_all()  # Show all widgets after adding them
+        self.right_container.show_all()  # Show all widgets after adding them
 
     def select_default_category(self):
         # Select Trending by default
@@ -408,95 +359,6 @@ class MainWindow(Gtk.Window):
             trending_button = self.category_buttons['collections'][0]
             trending_button.set_active(True)
             self.on_category_button_clicked(trending_button, 'trending', 'collections')
-
-def create_repo_table(db_path, repo_name):
-    """Create a table for storing app data from a specific repository."""
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        # Create table with all fields from AppStreamPackage
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS {repo_name} (
-                id TEXT PRIMARY KEY,
-                name TEXT,
-                summary TEXT,
-                description TEXT,
-                version TEXT,
-                icon_url TEXT,
-                icon_path_128 TEXT,
-                icon_path_64 TEXT,
-                icon_filename TEXT,
-                developer TEXT,
-                categories TEXT,
-                bundle_id TEXT,
-                repo_name TEXT,
-                match_type TEXT,
-                urls TEXT,
-                trending INTEGER DEFAULT 0,
-                popular INTEGER DEFAULT 0,
-                recently_added INTEGER DEFAULT 0,
-                recently_updated INTEGER DEFAULT 0,
-                FOREIGN KEY (id) REFERENCES applications (app_id)
-            )
-        """)
-
-        conn.commit()
-        return True
-    except sqlite3.Error as e:
-        print(f"Error creating table: {str(e)}")
-        return False
-    finally:
-        conn.close()
-
-def store_app_data(db_path, repo_name, app_data):
-    """Store app data in the SQLite database."""
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        # Convert URLs dictionary to JSON string for storage
-        urls_json = json.dumps(app_data['urls'])
-        categories_json = json.dumps(app_data['categories'])
-
-        # Insert data into the repository table
-        cursor.execute(f"""
-            INSERT OR REPLACE INTO {repo_name} (
-                id, name, summary, description, version,
-                icon_url, icon_path_128, icon_path_64,
-                icon_filename, developer, categories,
-                bundle_id, repo_name, match_type, urls,
-                trending, popular, recently_added, recently_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            app_data['id'],
-            app_data['name'],
-            app_data['summary'],
-            app_data['description'],
-            app_data['version'],
-            app_data['icon_url'],
-            app_data['icon_path_128'],
-            app_data['icon_path_64'],
-            app_data['icon_filename'],
-            app_data['developer'],
-            categories_json,
-            app_data['bundle_id'],
-            repo_name,
-            app_data['match_type'],
-            urls_json,
-            0,
-            0,
-            0,
-            0
-        ))
-
-        conn.commit()
-        return True
-    except sqlite3.Error as e:
-        print(f"Error storing app data: {str(e)}")
-        return False
-    finally:
-        conn.close()
 
 def main():
     app = MainWindow()

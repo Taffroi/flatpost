@@ -219,24 +219,44 @@ class AppstreamSearcher:
                     search_results.append(result)
         return search_results
 
+    def get_all_apps(self, repo_name: str = None) -> list[AppStreamPackage]:
+        """Get all available apps from specified or all repositories"""
+        all_packages = []
+        if repo_name:
+            if repo_name in self.remotes:
+                all_packages = self.remotes[repo_name]
+        else:
+            for remote_name in self.remotes.keys():
+                all_packages.extend(self.remotes[remote_name])
+        return all_packages
+
+    def get_categories_summary(self, repo_name: str = None) -> dict:
+        """Get a summary of all apps grouped by category"""
+        apps = self.get_all_apps(repo_name)
+        categories = {}
+
+        for app in apps:
+            for category in app.categories:
+                if category not in categories:
+                    categories[category] = []
+                categories[category].append(app)
+
+        return categories
+
 def main():
     """Main function demonstrating Flatpak information retrieval"""
 
     parser = argparse.ArgumentParser(description='Search Flatpak packages')
     parser.add_argument('--id', help='Application ID to search for')
     parser.add_argument('--repo', help='Filter results to specific repository')
+    parser.add_argument('--list-all', action='store_true', help='List all available apps')
+    parser.add_argument('--categories', action='store_true', help='Show apps grouped by category')
 
     args = parser.parse_args()
     app_id = args.id
     repo_filter = args.repo
-
-    if not app_id:
-        print("Usage: python flatpak_info.py --<option> <value>")
-        print("options: --id --repo")
-        print("example (app search single repo): --id net.lutris.Lutris --repo flathub")
-        print("example (app search all repos): --id net.lutris.Lutris")
-        return
-
+    list_all = args.list_all
+    show_categories = args.categories
 
     # Create AppstreamSearcher instance
     searcher = AppstreamSearcher()
@@ -244,6 +264,23 @@ def main():
     # Add installations
     installation = Flatpak.Installation.new_system(None)
     searcher.add_installation(installation)
+
+    if list_all:
+        apps = searcher.get_all_apps(repo_filter)
+        for app in apps:
+            details = app.get_details()
+            print(f"Name: {details['name']}")
+            print(f"Categories: {', '.join(details['categories'])}")
+            print("-" * 50)
+        return
+
+    if show_categories:
+        categories = searcher.get_categories_summary(repo_filter)
+        for category, apps in categories.items():
+            print(f"\n{category.upper()}:")
+            for app in apps:
+                print(f"  - {app.name} ({app.id})")
+        return
 
     if app_id == "" or len(app_id) < 3:
         self._clear()
@@ -284,4 +321,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
