@@ -59,22 +59,17 @@ class MainWindow(Gtk.Window):
                 padding: 6px;
                 margin: 0;
             }
+
             .dark-category-button {
                 border: 0px;
                 padding: 6px;
                 margin: 0;
-            }
-            .dark-category-button,
-            .dark-category-button:hover,
-            .dark-category-button:focus,
-            .dark-category-button:active {
                 background: none;
-                border: none;
-                padding: 0;
-                outline: none;
-                box-shadow: none;
-                transition: none;
-                -webkit-appearance: none;
+            }
+
+            .dark-category-button-active {
+                background-color: #18A3FF;
+                color: white;
             }
         """)
 
@@ -101,7 +96,7 @@ class MainWindow(Gtk.Window):
 
         total_categories = sum(len(categories) for categories in self.category_groups.values())
         current_category = 0
-        msg = "Updating metadata, please wait..."
+        msg = "Fetching metadata, please wait..."
         dialog = Gtk.Dialog(
             title=msg,
             parent=self,
@@ -192,10 +187,10 @@ class MainWindow(Gtk.Window):
         container.set_halign(Gtk.Align.FILL)  # Fill horizontally
         container.set_valign(Gtk.Align.START)  # Align to top
 
-        # Dictionary to store buttons grouped by category
-        self.category_buttons = {}
+        # Dictionary to store category widgets
+        self.category_widgets = {}
 
-        # Add group headers and buttons
+        # Add group headers and categories
         for group_name, categories in groups.items():
             # Create a box for the header
             header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -213,22 +208,35 @@ class MainWindow(Gtk.Window):
             # Add the box to the container
             container.pack_start(header_box, False, False, 0)
 
-            # Store buttons for this group
-            self.category_buttons[group_name] = []
+            # Store widgets for this group
+            self.category_widgets[group_name] = []
 
             # Add categories in the group
             for category, display_title in categories.items():
-                # Create clickable button for each category
-                button = Gtk.ToggleButton(label=display_title)
-                button.get_style_context().remove_class("dark-header")
-                button.get_style_context().add_class("dark-category-button")
-                button.set_halign(Gtk.Align.START)  # Left align button
-                button.set_hexpand(True)  # Expand horizontally
-                button.connect("clicked", self.on_category_button_clicked, category, group_name)
+                # Create a clickable box for each category
+                category_box = Gtk.EventBox()
+                category_box.set_hexpand(True)
+                category_box.set_halign(Gtk.Align.FILL)
+                category_box.set_margin_top(2)
+                category_box.set_margin_bottom(2)
 
-                # Store button in group
-                self.category_buttons[group_name].append(button)
-                container.pack_start(button, False, False, 2)
+                # Create label for the category
+                category_label = Gtk.Label(label=display_title)
+                category_label.set_halign(Gtk.Align.START)
+                category_label.set_hexpand(True)
+                category_label.get_style_context().add_class("dark-category-button")
+
+                # Add label to the box
+                category_box.add(category_label)
+
+                # Connect click event
+                category_box.connect("button-release-event",
+                                lambda widget, event, cat=category, grp=group_name:
+                                self.on_category_clicked(cat, grp))
+
+                # Store widget in group
+                self.category_widgets[group_name].append(category_box)
+                container.pack_start(category_box, False, False, 0)
 
         # Add container to scrolled window
         scrolled_window.add(container)
@@ -236,11 +244,18 @@ class MainWindow(Gtk.Window):
         # Pack the scrolled window directly into main box
         self.main_box.pack_start(scrolled_window, False, False, 0)
 
-    def on_category_button_clicked(self, button, category, group):
-        # Uncheck all other buttons in the same group
-        for btn in self.category_buttons[group]:
-            if btn != button:
-                btn.set_active(False)
+    def on_category_clicked(self, category, group):
+        # Remove active state from all categories in the same group
+        for widget in self.category_widgets[group]:
+            widget.get_style_context().remove_class("dark-category-button-active")
+
+        # Add active state to the clicked category
+        display_title = self.category_groups[group][category]
+        for widget in self.category_widgets[group]:
+            if widget.get_children()[0].get_label() == display_title:
+                widget.get_style_context().add_class("dark-category-button-active")
+                break
+
         self.show_category_apps(category)
 
     def create_applications_panel(self, title):
@@ -293,6 +308,7 @@ class MainWindow(Gtk.Window):
         except requests.RequestException as e:
             print(f"Error fetching apps: {str(e)}")
             return None
+
 
     def show_category_apps(self, category):
         # Clear existing content
@@ -355,10 +371,8 @@ class MainWindow(Gtk.Window):
 
     def select_default_category(self):
         # Select Trending by default
-        if 'collections' in self.category_buttons and self.category_buttons['collections']:
-            trending_button = self.category_buttons['collections'][0]
-            trending_button.set_active(True)
-            self.on_category_button_clicked(trending_button, 'trending', 'collections')
+        if 'collections' in self.category_widgets and self.category_widgets['collections']:
+            self.on_category_clicked('trending', 'collections')
 
 def main():
     app = MainWindow()
