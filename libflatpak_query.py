@@ -7,9 +7,7 @@ from gi.repository import Flatpak, GLib, Gio, AppStream
 from pathlib import Path
 import logging
 from enum import IntEnum
-from pathlib import Path
 import argparse
-import sys
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -84,9 +82,6 @@ class AppStreamPackage:
         return cached_icon.get_filename() if cached_icon else ""
 
     def _get_icon_cache_path(self, size: str) -> str:
-
-        # Remove the file:// prefix
-        icon_filename = self._get_icon_filename()
 
         # Appstream icon cache path for the flatpak repo queried
         icon_cache_path = Path(self.remote.get_appstream_dir().get_path() + "/icons/flatpak/" + size + "/")
@@ -198,10 +193,14 @@ class AppstreamSearcher:
         search_results = []
         packages = self.remotes[repo_name]
         for package in packages:
-            found = package.search(keyword)
-            if found != Match.NONE:
-                logger.debug(f" found : {package} match: {found}")
-                package.match = found
+            # Try matching exact ID first
+            if keyword is package.id:
+                search_results.append(package)
+            # Try matching case insensitive ID next
+            elif keyword.lower() is package.id.lower():
+                search_results.append(package)
+            # General keyword search
+            elif keyword.lower() in str(package).lower():
                 search_results.append(package)
         return search_results
 
@@ -209,15 +208,18 @@ class AppstreamSearcher:
     def search_flatpak(self, keyword: str, repo_name=None) -> list[AppStreamPackage]:
         """Search packages matching a keyword"""
         search_results = []
-        keyword = keyword.lower()
-        if repo_name:
-            search_results = self.search_flatpak_repo(keyword, repo_name)
-        else:
-            for remote_name in self.remotes.keys():
-                results = self.search_flatpak_repo(keyword, remote_name)
-                for result in results:
-                    search_results.append(result)
+        keyword = keyword
+        if repo_name and repo_name in self.remotes.keys():
+            results = self.search_flatpak_repo(keyword, repo_name)
+            for result in results:
+                search_results.append(result)
+            return search_results
+        for remote_name in self.remotes.keys():
+            results = self.search_flatpak_repo(keyword, remote_name)
+            for result in results:
+                search_results.append(result)
         return search_results
+
 
     def get_all_apps(self, repo_name: str = None) -> list[AppStreamPackage]:
         """Get all available apps from specified or all repositories"""
@@ -243,6 +245,65 @@ class AppstreamSearcher:
 
         return categories
 
+    def get_installed_apps(self) -> list[tuple[str, str, str]]:
+        """Get a list of all installed Flatpak applications with their repository source"""
+        installed_refs = []
+
+        # Get both system-wide and user installations
+        system_inst = Flatpak.Installation.new_system(None)
+        user_inst = Flatpak.Installation.new_user(None)
+
+        def process_installed_refs(inst: Flatpak.Installation, repo_type: str):
+            for ref in inst.list_installed_refs_by_kind(Flatpak.RefKind.APP):
+                app_id = ref.format_ref()
+
+                # Get remote name from the installation
+                remote_name = ref.get_origin()
+                # Handle cases where remote might be None
+                if not remote_name:
+                    remote_name = repo_type.capitalize()
+
+                installed_refs.append((app_id, remote_name, repo_type))
+
+        # Process both system-wide and user installations
+        process_installed_refs(system_inst, "system")
+        process_installed_refs(user_inst, "user")
+
+        # Remove duplicates while maintaining order
+        seen = set()
+        unique_installed = [(ref, repo, repo_type) for ref, repo, repo_type in installed_refs
+                        if not (ref in seen or seen.add(ref))]
+
+        return unique_installed
+
+    def check_updates(self) -> list[tuple[str, str, str]]:
+        """Check for available updates for installed Flatpak applications"""
+        updates = []
+
+        # Get both system-wide and user installations
+        system_inst = Flatpak.Installation.new_system(None)
+        user_inst = Flatpak.Installation.new_user(None)
+
+        def check_updates_for_install(inst: Flatpak.Installation, repo_type: str):
+            for ref in inst.list_installed_refs_for_update(None):
+                app_id = ref.get_name()
+
+                # Get remote name from the installation
+                remote_name = ref.get_origin()
+                # Handle cases where remote might be None
+                if not remote_name:
+                    remote_name = repo_type.capitalize()
+
+                updates.append((remote_name, app_id, repo_type))
+
+        # Check system-wide installation
+        check_updates_for_install(system_inst, "system")
+
+        # Check user installation
+        check_updates_for_install(user_inst, "user")
+
+        return updates
+
 def main():
     """Main function demonstrating Flatpak information retrieval"""
 
@@ -251,6 +312,10 @@ def main():
     parser.add_argument('--repo', help='Filter results to specific repository')
     parser.add_argument('--list-all', action='store_true', help='List all available apps')
     parser.add_argument('--categories', action='store_true', help='Show apps grouped by category')
+    parser.add_argument('--list-installed', action='store_true',
+                       help='List all installed Flatpak applications')
+    parser.add_argument('--check-updates', action='store_true',
+                       help='Check for available updates')
 
     args = parser.parse_args()
     app_id = args.id
@@ -264,6 +329,22 @@ def main():
     # Add installations
     installation = Flatpak.Installation.new_system(None)
     searcher.add_installation(installation)
+
+    if args.list_installed:
+        installed_apps = searcher.get_installed_apps()
+        print(f"\nInstalled Flatpak Applications ({len(installed_apps)}):")
+        for app_id, repo_name, repo_type in installed_apps:
+            parts = app_id.split('/')
+            app_id = parts[parts.index('app') + 1]
+            print(f"{app_id} (Repository: {repo_name}, Installation: {repo_type})")
+        return
+
+    if args.check_updates:
+        updates = searcher.check_updates()
+        print(f"\nAvailable Updates ({len(updates)}):")
+        for repo_name, app_id, repo_type in updates:
+            print(f"{app_id} (Repository: {repo_name}, Installation: {repo_type})")
+        return
 
     if list_all:
         apps = searcher.get_all_apps(repo_filter)
