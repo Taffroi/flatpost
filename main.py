@@ -17,7 +17,8 @@ class MainWindow(Gtk.Window):
         super().__init__()
 
         # Store search results as an instance variable
-        self.search_results = []  # Initialize empty list
+        self.category_results = []  # Initialize empty list
+        self.collection_results = []  # Initialize empty list
 
         # Set window size
         self.set_default_size(1280, 720)
@@ -94,10 +95,36 @@ class MainWindow(Gtk.Window):
         # Create panels
         self.create_panels()
 
+        self.refresh_data()
+
         # Select Trending by default
         self.select_default_category()
 
-        self.refresh_data()
+    def update_collection_results(self, new_collection_results):
+        """Update search results by replacing existing items and adding new ones."""
+        # Create a set of existing app_ids for efficient lookup
+        existing_app_ids = {app.id for app in self.collection_results}
+
+        # Create a list to store the updated results
+        updated_results = []
+
+        # First add all existing results
+        updated_results.extend(self.collection_results)
+
+        # Add new results, replacing any existing ones
+        for new_result in new_collection_results:
+            app_id = new_result.id
+            if app_id in existing_app_ids:
+                # Replace existing result
+                for i, existing in enumerate(updated_results):
+                    if existing.id == app_id:
+                        updated_results[i] = new_result
+                        break
+            else:
+                # Add new result
+                updated_results.append(new_result)
+
+        self.collection_results = updated_results
 
     def refresh_data(self):
 
@@ -133,33 +160,37 @@ class MainWindow(Gtk.Window):
             # Process categories one at a time to keep GUI responsive
             for category, title in categories.items():
 
-                # Current offline-only mode. Later we will check metadata date and refresh if need
-                apps = searcher.get_all_apps('flathub')
-                for app in apps:
-                    details = app.get_details()
-                    if category in details['categories']:
-                        search_result = searcher.search_flatpak(details['name'], 'flathub')
-                        self.search_results.extend(search_result)
+                # Preload the currently saved collections data first
+                try:
+                    with open("collections_data.json", 'r', encoding='utf-8') as f:
+                        collections_data = json.load(f)
+                        for collection in collections_data:
+                            if collection['category'] == category:
+                                apps =  [app['app_id'] for app in collection['data'].get('hits', [])]
+                                for app_id in apps:
+                                    search_result = searcher.search_flatpak(app_id, 'flathub')
+                                    self.collection_results.extend(search_result)
+                except (IOError, json.JSONDecodeError) as e:
+                    print(f"Error loading collections data: {str(e)}")
 
-                # Planned code for metadata refresh, not ready yet
                 # Try to get apps from Flathub API if internet is available
-                #if self.check_internet():
-                #    api_data = self.fetch_flathub_category_apps(category)
-                #    if api_data:
-                #        apps = api_data['hits']
-                #
-                #        for app in apps:
-                #            app_id = app['app_id']
-                #            # Search for the app in local repositories
-                #            search_result = searcher.search_flatpak(app_id, 'flathub')
-                #            self.search_results.extend(search_result)
-                #else:
-                #    apps = searcher.get_all_apps('flathub')
-                #    for app in apps:
-                #        details = app.get_details()
-                #        if category in details['categories']:
-                #            search_result = searcher.search_flatpak(details['name'], 'flathub')
-                #            self.search_results.extend(search_result)
+                if self.check_internet():
+                    api_data = self.fetch_flathub_category_apps(category)
+                    if api_data:
+                        apps = api_data['hits']
+
+                        for app in apps:
+                            app_id = app['app_id']
+                            # Search for the app in local repositories
+                            search_result = searcher.search_flatpak(app_id, 'flathub')
+                            self.category_results.extend(search_result)
+                else:
+                    apps = searcher.get_all_apps('flathub')
+                    for app in apps:
+                        details = app.get_details()
+                        if category in details['categories']:
+                            search_result = searcher.search_flatpak(details['name'], 'flathub')
+                            self.category_results.extend(search_result)
 
                 current_category += 1
 
@@ -170,6 +201,28 @@ class MainWindow(Gtk.Window):
                 # Force GTK to process events
                 while Gtk.events_pending():
                     Gtk.main_iteration_do(False)
+
+        self.save_collections_data()
+
+        # load collections from json file again
+        # we do this in one go after all of the data from each category has been saved to the json file.
+        # this time we update entries that already exist and add new entries that don't exist.
+        for group_name, categories in self.category_groups.items():
+            for category, title in categories.items():
+                if category in self.category_groups['collections']:
+                    try:
+                        with open("collections_data.json", 'r', encoding='utf-8') as f:
+                            collections_data = json.load(f)
+                            for collection in collections_data:
+                                if collection['category'] == category:
+                                    apps =  [app['app_id'] for app in collection['data'].get('hits', [])]
+                                    new_results = []
+                                    for app_id in apps:
+                                        search_result = searcher.search_flatpak(app_id, 'flathub')
+                                        new_results.extend(search_result)
+                                    self.update_collection_results(new_results)
+                    except (IOError, json.JSONDecodeError) as e:
+                        print(f"Error loading collections data: {str(e)}")
 
         dialog.destroy()
 
@@ -330,14 +383,36 @@ class MainWindow(Gtk.Window):
             response = requests.get(url, timeout=10)
 
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+
+                # If this is a collections category, save it to our collections database
+                if category in self.category_groups['collections']:
+                    if not hasattr(self, 'collections_db'):
+                        self.collections_db = []
+                    self.collections_db.append({
+                        'category': category,
+                        'data': data
+                    })
+
+                return data
             else:
                 print(f"Failed to fetch apps: Status code {response.status_code}")
                 return None
-
         except requests.RequestException as e:
             print(f"Error fetching apps: {str(e)}")
             return None
+
+    def save_collections_data(self, filename='collections_data.json'):
+        """Save all collected collections data to a JSON file."""
+        if not hasattr(self, 'collections_db') or not self.collections_db:
+            print("No collections data available to save")
+            return
+
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(self.collections_db, f, indent=2, ensure_ascii=False)
+        except IOError as e:
+            print(f"Error saving collections data: {str(e)}")
 
 
     def show_category_apps(self, category):
@@ -345,9 +420,41 @@ class MainWindow(Gtk.Window):
         for child in self.right_container.get_children():
             child.destroy()
 
-        # Filter apps based on category
-        apps = [app for app in self.search_results if category in app.get_details()['categories']]
+        # Load collections data
+        try:
+            with open("collections_data.json", 'r', encoding='utf-8') as f:
+                collections_data = json.load(f)
 
+                # Find the specific category in collections data
+                category_entry = next((
+                    entry for entry in collections_data
+                    if entry['category'] == category
+                ), None)
+
+                if category_entry:
+                    # Get all app IDs in this category
+                    app_ids_in_category = [
+                        hit['app_id'] for hit in category_entry['data']['hits']
+                    ]
+
+                    # Filter apps based on presence in category
+                    apps = [
+                        app for app in self.collection_results
+                        if app.get_details()['id'] in app_ids_in_category
+                    ]
+                else:
+                    # Fallback to previous behavior if category isn't in collections
+                    apps = [
+                        app for app in self.collection_results
+                        if category in app.get_details()['categories']
+                    ]
+
+        except (IOError, json.JSONDecodeError) as e:
+            print(f"Error reading collections data: {str(e)}")
+            apps = [
+                app for app in self.collection_results
+                if category in app.get_details()['categories']
+            ]
         # Display each application
         for app in apps:
             details = app.get_details()
