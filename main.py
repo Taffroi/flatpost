@@ -54,6 +54,13 @@ class MainWindow(Gtk.Window):
         # Add CSS provider for custom styling
         css_provider = Gtk.CssProvider()
         css_provider.load_from_data("""
+            .panel-header {
+                font-size: 24px;
+                font-weight: bold;
+                padding: 12px;
+                color: white;
+            }
+
             .dark-header {
                 background-color: #333333;
                 padding: 6px;
@@ -257,12 +264,32 @@ class MainWindow(Gtk.Window):
                 widget.get_style_context().add_class("dark-category-button-active")
                 break
 
+        self.update_category_header(category)
         self.show_category_apps(category)
+
+    def update_category_header(self, category):
+        """Update the category header text based on the selected category."""
+        if category in self.category_groups['collections']:
+            display_title = self.category_groups['collections'][category]
+        elif category in self.category_groups['categories']:
+            display_title = self.category_groups['categories'][category]
+        elif category in self.subcategories:
+            display_title = self.subcategories[category]
+        else:
+            display_title = category.capitalize()
+
+        self.category_header.set_label(display_title)
 
     def create_applications_panel(self, title):
         # Create right panel
         self.right_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.right_panel.set_size_request(-1, -1)
+
+        # Add category header
+        self.category_header = Gtk.Label(label="")
+        self.category_header.get_style_context().add_class("panel-header")
+        self.category_header.set_hexpand(True)
+        self.category_header.set_halign(Gtk.Align.START)
+        self.right_panel.pack_start(self.category_header, False, False, 0)  # Pack header first
 
         # Create scrollable area
         scrolled_window = Gtk.ScrolledWindow()
@@ -273,9 +300,11 @@ class MainWindow(Gtk.Window):
         self.right_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.right_container.set_spacing(6)
         self.right_container.set_border_width(6)
-
         scrolled_window.add(self.right_container)
-        self.main_box.pack_end(scrolled_window, True, True, 0)
+
+        self.right_panel.pack_start(scrolled_window, True, True, 0)  # Pack scrolled window second
+
+        self.main_box.pack_end(self.right_panel, True, True, 0)
         return self.right_container
 
     def check_internet(self):
