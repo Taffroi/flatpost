@@ -88,6 +88,20 @@ class MainWindow(Gtk.Window):
                 background-color: #18A3FF;
                 color: white;
             }
+            .dark-remove-button {
+                background-color: #ff4444;
+                color: white;
+                border: none;
+                padding: 6px;
+                margin: 0;
+            }
+            .dark-install-button {
+                background-color: #18A3FF;
+                color: white;
+                border: none;
+                padding: 6px;
+                margin: 0;
+            }
         """)
 
         # Add CSS provider to the default screen
@@ -496,6 +510,10 @@ class MainWindow(Gtk.Window):
         if 'updates' in category:
             apps.extend([app for app in self.updates_results])
 
+        # Track installed package IDs for quick lookup
+        installed_package_ids = {app.get_details()['id'] for app in self.installed_results}
+        updatable_package_ids = {app.get_details()['id'] for app in self.updates_results}
+
         # Load collections data
         try:
             with open("collections_data.json", 'r', encoding='utf-8') as f:
@@ -535,6 +553,8 @@ class MainWindow(Gtk.Window):
         # Display each application
         for app in apps:
             details = app.get_details()
+            is_installed = details['id'] in installed_package_ids
+            is_updatable = details['id'] in updatable_package_ids
 
             # Create application container
             app_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -576,13 +596,35 @@ class MainWindow(Gtk.Window):
             buttons_box.set_margin_top(4)
             buttons_box.set_halign(Gtk.Align.END)
 
-            # Install button
-            install_btn = self.create_button(
-                "Install",
-                self.on_install_clicked,
-                app
-            )
-            buttons_box.pack_end(install_btn, False, False, 0)
+            # Install/Remove button
+            if is_installed:
+                button = self.create_button(
+                    "Remove",
+                    self.on_remove_clicked,
+                    app,
+                    condition=lambda x: True
+                )
+                button.get_style_context().add_class("dark-remove-button")
+            else:
+                button = self.create_button(
+                    "Install",
+                    self.on_install_clicked,
+                    app,
+                    condition=lambda x: True
+                )
+                button.get_style_context().add_class("dark-install-button")
+            buttons_box.pack_end(button, False, False, 0)
+
+            # Add Update button if available
+            if is_updatable:
+                update_button = self.create_button(
+                    "Update",
+                    self.on_update_clicked,
+                    app,
+                    condition=lambda x: True
+                )
+                update_button.get_style_context().add_class("dark-install-button")
+                buttons_box.pack_end(update_button, False, False, 0)
 
             # Details button
             details_btn = self.create_button(
@@ -625,6 +667,22 @@ class MainWindow(Gtk.Window):
         # Implement installation logic here
         # Example:
         # Flatpak.install(app_id=details['id'])
+
+    def on_remove_clicked(self, button, app):
+        """Handle the Remove button click"""
+        details = app.get_details()
+        print(f"Removing application: {details['name']}")
+        # Implement removal logic here
+        # Example:
+        # Flatpak.uninstall(app_id=details['id'])
+
+    def on_update_clicked(self, button, app):
+        """Handle the Update button click"""
+        details = app.get_details()
+        print(f"Updating application: {details['name']}")
+        # Implement update logic here
+        # Example:
+        # Flatpak.update(app_id=details['id'])
 
     def on_details_clicked(self, button, app):
         """Handle the Details button click"""
