@@ -26,4 +26,5 @@ TODO:
 - Search function
 - Refresh metadata button
 - Package information page/section.
+- Implement subcategories
 - General GUI layout/theming improvements
