@@ -1,6 +1,8 @@
 ![screenshot](screenshots/flatshop_agnostic.png)
+![screenshot](screenshots/flatshop_agnostic2.png)
 
-This is very much currently WIP. Right now it only fetches data from appstream and/or a few flathub api endpoints.
+
+This is very much currently WIP.
 
 DONE:
 - Appstream metadata loading and search
