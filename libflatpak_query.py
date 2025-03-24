@@ -409,7 +409,7 @@ class AppstreamSearcher:
 
         self.collection_results = updated_results
 
-    def refresh_data(self):
+    def retrieve_metadata(self):
 
         # make sure to reset these to empty before refreshing.
         self.category_results = []  # Initialize empty list

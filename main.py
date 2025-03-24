@@ -7,7 +7,6 @@ gi.require_version("Flatpak", "1.0")
 from gi.repository import Gtk, Gio, Gdk, GLib
 import libflatpak_query
 import json
-from queue import Queue
 import threading
 
 class MainWindow(Gtk.Window):
@@ -205,7 +204,7 @@ class MainWindow(Gtk.Window):
         # Define thread target function
         def refresh_target():
             try:
-                category_results, collection_results, installed_results, updates_results = searcher.refresh_data()
+                category_results, collection_results, installed_results, updates_results = searcher.retrieve_metadata()
                 self.category_results = category_results
                 self.collection_results = collection_results
                 self.installed_results = installed_results
