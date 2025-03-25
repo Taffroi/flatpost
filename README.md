@@ -18,13 +18,18 @@ DONE:
 - GUI layout of buttons
 - GUI layout of search
 - Donate/Support button and function.
+- Install button functions
+- System mode backend
 
 TODO:
-- Install/Remove button functions
+- Remove button functions
 - Update button functions
 - Update management GUI
 - Search function
+- System mode toggle
 - Refresh metadata button
+- List Applications only checkbox
 - Package information page/section.
 - Implement subcategories
 - General GUI layout/theming improvements
+- Sort runtimes from Desktop Apps
