@@ -18,7 +18,9 @@ class MainWindow(Gtk.Window):
         self.collection_results = []  # Initialize empty list
         self.installed_results = []  # Initialize empty list
         self.updates_results = []  # Initialize empty list
-        self.system_mode = None
+        self.system_mode = False
+        self.current_page = None  # Track current page
+        self.current_group = None  # Track current group (system/collections/categories)
 
         # Set window size
         self.set_default_size(1280, 720)
@@ -162,10 +164,7 @@ class MainWindow(Gtk.Window):
 
     def populate_repo_dropdown(self):
         # Get list of repositories
-        if not self.system_mode:
-            libflatpak_query.repolist()
-        else:
-            libflatpak_query.repolist("system")
+        libflatpak_query.repolist(self.system_mode)
         repos = libflatpak_query.repolist()
 
         # Clear existing items
@@ -203,15 +202,12 @@ class MainWindow(Gtk.Window):
         # Show the dialog
         dialog.show_all()
 
-        if not self.system_mode:
-            searcher = libflatpak_query.get_reposearcher()
-        else:
-            searcher = libflatpak_query.get_reposearcher("system")
+        searcher = libflatpak_query.get_reposearcher(self.system_mode)
 
         # Define thread target function
         def refresh_target():
             try:
-                category_results, collection_results, installed_results, updates_results = searcher.retrieve_metadata()
+                category_results, collection_results, installed_results, updates_results = searcher.retrieve_metadata(self.system_mode)
                 self.category_results = category_results
                 self.collection_results = collection_results
                 self.installed_results = installed_results
@@ -235,6 +231,65 @@ class MainWindow(Gtk.Window):
         def update_progress():
             while refresh_thread.is_alive():
                 progress_bar.set_text("Fetching...")
+                progress = searcher.refresh_progress
+                progress_bar.set_fraction(progress / 100)
+                return True
+            else:
+                progress_bar.set_fraction(100 / 100)
+                dialog.destroy()
+
+        # Start the progress update timer
+        GLib.timeout_add_seconds(0.5, update_progress)
+        dialog.run()
+        if not refresh_thread.is_alive() and dialog.is_active():
+            dialog.destroy()
+
+    def refresh_local(self):
+        # Create dialog and progress bar
+        dialog = Gtk.Dialog(
+            title="Refreshing local data, please wait...",
+            parent=self,
+            modal=True,
+            destroy_with_parent=True
+        )
+        dialog.set_size_request(400, 100)
+
+        progress_bar = Gtk.ProgressBar()
+        progress_bar.set_text("Initializing...")
+        progress_bar.set_show_text(True)
+        dialog.vbox.pack_start(progress_bar, True, True, 0)
+        dialog.vbox.set_spacing(12)
+
+        # Show the dialog
+        dialog.show_all()
+
+        searcher = libflatpak_query.get_reposearcher(self.system_mode)
+
+        # Define thread target function
+        def refresh_target():
+            try:
+                installed_results, updates_results = searcher.refresh_local(self.system_mode)
+                self.installed_results = installed_results
+                self.updates_results = updates_results
+            except Exception as e:
+                message_type = Gtk.MessageType.ERROR
+                dialog = Gtk.MessageDialog(
+                    transient_for=None,  # Changed from self
+                    modal=True,
+                    destroy_with_parent=True,
+                    message_type=message_type,
+                    buttons=Gtk.ButtonsType.OK,
+                    text=f"Error updating progress: {str(e)}"
+                )
+                dialog.run()
+                dialog.destroy()
+
+        # Start the refresh thread
+        refresh_thread = threading.Thread(target=refresh_target)
+        refresh_thread.start()
+        def update_progress():
+            while refresh_thread.is_alive():
+                progress_bar.set_text("Refreshing...")
                 progress = searcher.refresh_progress
                 progress_bar.set_fraction(progress / 100)
                 return True
@@ -533,9 +588,15 @@ class MainWindow(Gtk.Window):
             if widget.get_children()[0].get_label() == display_title:
                 widget.get_style_context().add_class("dark-category-button-active")
                 break
-
+        self.current_page = category
+        self.current_group = group
         self.update_category_header(category)
         self.show_category_apps(category)
+
+    def refresh_current_page(self):
+        """Refresh the currently displayed page"""
+        if self.current_page and self.current_group:
+            self.on_category_clicked(self.current_page, self.current_group)
 
     def update_category_header(self, category):
         """Update the category header text based on the selected category."""
@@ -687,10 +748,7 @@ class MainWindow(Gtk.Window):
             self.right_container.pack_start(header_bar, False, False, 0)
 
             # Get list of repositories
-            if not self.system_mode:
-                repos = libflatpak_query.repolist()
-            else:
-                repos = libflatpak_query.repolist("system")
+            repos = libflatpak_query.repolist(self.system_mode)
 
             # Create a scrolled window for repositories
             scrolled_window = Gtk.ScrolledWindow()
@@ -897,11 +955,10 @@ class MainWindow(Gtk.Window):
     def on_install_clicked(self, button, app):
         """Handle the Install button click with installation options"""
         details = app.get_details()
-        app_id = details['id']
 
         # Create dialog
         dialog = Gtk.Dialog(
-            title=f"Install {details['name']}",
+            title=f"Install {details['name']}?",
             transient_for=self,
             modal=True,
             destroy_with_parent=True,
@@ -919,23 +976,21 @@ class MainWindow(Gtk.Window):
         repo_combo = Gtk.ComboBoxText()
         repo_combo.set_hexpand(True)
 
+        content_area.pack_start(Gtk.Label(label=f"Install: {details['id']}?"), False, False, 0)
+
         # Search for available repositories containing this app
-        if not self.system_mode:
-            searcher = libflatpak_query.get_reposearcher()
+        searcher = libflatpak_query.get_reposearcher(self.system_mode)
+        if self.system_mode is False:
             content_area.pack_start(Gtk.Label(label="Installation Type: User"), False, False, 0)
         else:
-            searcher = libflatpak_query.get_reposearcher("system")
             content_area.pack_start(Gtk.Label(label="Installation Type: System"), False, False, 0)
 
         # Populate repository dropdown
         available_repos = set()
-        if not self.system_mode:
-            repos = libflatpak_query.repolist()
-        else:
-            repos = libflatpak_query.repolist("system")
+        repos = libflatpak_query.repolist(self.system_mode)
         for repo in repos:
             if not repo.get_disabled():
-                search_results = searcher.search_flatpak(app_id, repo.get_name())
+                search_results = searcher.search_flatpak(details['id'], repo.get_name())
                 if search_results:
                     available_repos.add(repo)
 
@@ -972,12 +1027,11 @@ class MainWindow(Gtk.Window):
 
             # Perform installation
             # Get selected values
-            if not self.system_mode:
+            if self.system_mode is False:
                 print(f"Installing {details['name']} for User from {selected_repo}")
-                success, message = libflatpak_query.install_flatpak(app.id, selected_repo)
             else:
                 print(f"Installing {details['name']} for System from {selected_repo}")
-                success, message = libflatpak_query.install_flatpak(app.id, selected_repo, "system")
+            success, message = libflatpak_query.install_flatpak(app, selected_repo, self.system_mode)
             message_type=Gtk.MessageType.INFO
             if not success:
                 message_type=Gtk.MessageType.ERROR
@@ -990,17 +1044,65 @@ class MainWindow(Gtk.Window):
                     buttons=Gtk.ButtonsType.OK,
                     text=message
                 )
+                self.refresh_local()
                 finished_dialog.run()
                 finished_dialog.destroy()
+
+            self.refresh_current_page()
         dialog.destroy()
 
     def on_remove_clicked(self, button, app):
-        """Handle the Remove button click"""
+        """Handle the Remove button click with removal options"""
         details = app.get_details()
-        print(f"Removing application: {details['name']}")
-        # Implement removal logic here
-        # Example:
-        # Flatpak.uninstall(app_id=details['id'])
+
+        # Create dialog
+        dialog = Gtk.Dialog(
+            title=f"Remove {details['name']}?",
+            transient_for=self,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        # Add buttons using the new method
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Remove", Gtk.ResponseType.OK)
+
+        # Create content area
+        content_area = dialog.get_content_area()
+        content_area.set_spacing(12)
+        content_area.set_border_width(12)
+
+        content_area.pack_start(Gtk.Label(label=f"Remove: {details['id']}?"), False, False, 0)
+
+        # Show dialog
+        dialog.show_all()
+
+        # Run dialog
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            # Perform Removal
+            # Get selected values
+            if self.system_mode is False:
+                print(f"Removing {details['name']} for User.")
+            else:
+                print(f"Removing {details['name']} for System.")
+            success, message = libflatpak_query.remove_flatpak(app, self.system_mode)
+            message_type=Gtk.MessageType.INFO
+            if not success:
+                message_type=Gtk.MessageType.ERROR
+            if message:
+                finished_dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    modal=True,
+                    destroy_with_parent=True,
+                    message_type=message_type,
+                    buttons=Gtk.ButtonsType.OK,
+                    text=message
+                )
+                self.refresh_local()
+                finished_dialog.run()
+                finished_dialog.destroy()
+            self.refresh_current_page()
+        dialog.destroy()
 
     def on_update_clicked(self, button, app):
         """Handle the Update button click"""
@@ -1034,13 +1136,10 @@ class MainWindow(Gtk.Window):
         checkbox.get_parent().set_sensitive(True)
         if checkbox.get_active():
             checkbox.get_style_context().remove_class("dim-label")
-            if not self.system_mode:
-                success, message = libflatpak_query.repotoggle(repo.get_name(), True)
-            else:
-                success, message = libflatpak_query.repotoggle(repo.get_name(), True, "system")
+            success, message = libflatpak_query.repotoggle(repo.get_name(), True, self.system_mode)
             message_type = Gtk.MessageType.INFO
             if success:
-                self.refresh_data()
+                self.refresh_local()
             else:
                 if message:
                     message_type = Gtk.MessageType.ERROR
@@ -1057,13 +1156,10 @@ class MainWindow(Gtk.Window):
                 dialog.destroy()
         else:
             checkbox.get_style_context().add_class("dim-label")
-            if not self.system_mode:
-                success, message = libflatpak_query.repotoggle(repo.get_name(), False)
-            else:
-                success, message = libflatpak_query.repotoggle(repo.get_name(), False, "system")
+            success, message = libflatpak_query.repotoggle(repo.get_name(), False, self.system_mode)
             message_type = Gtk.MessageType.INFO
             if success:
-                self.refresh_data()
+                self.refresh_local()
             else:
                 if message:
                     message_type = Gtk.MessageType.ERROR
@@ -1095,11 +1191,8 @@ class MainWindow(Gtk.Window):
 
         if response == Gtk.ResponseType.YES:
             try:
-                if not self.system_mode:
-                    libflatpak_query.repodelete(repo.get_name())
-                else:
-                    libflatpak_query.repodelete(repo.get_name(), "system")
-                self.refresh_data()
+                libflatpak_query.repodelete(repo.get_name(), self.system_mode)
+                self.refresh_local()
                 self.show_category_apps('repositories')
             except GLib.GError as e:
                 # Handle polkit authentication failure
@@ -1131,10 +1224,7 @@ class MainWindow(Gtk.Window):
     def on_add_flathub_repo_button_clicked(self, button):
         """Handle the Add Flathub Repository button click"""
         # Add the repository
-        if not self.system_mode:
-            success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/repo/flathub.flatpakrepo")
-        else:
-            success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/repo/flathub.flatpakrepo", "system")
+        success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/repo/flathub.flatpakrepo", self.system_mode)
         if error_message:
             error_dialog = Gtk.MessageDialog(
                 transient_for=None,  # Changed from self
@@ -1146,16 +1236,13 @@ class MainWindow(Gtk.Window):
             )
             error_dialog.run()
             error_dialog.destroy()
-        self.refresh_data()
+        self.refresh_local()
         self.show_category_apps('repositories')
 
     def on_add_flathub_beta_repo_button_clicked(self, button):
         """Handle the Add Flathub Beta Repository button click"""
         # Add the repository
-        if not self.system_mode:
-            success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/beta-repo/flathub-beta.flatpakrepo")
-        else:
-            success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/beta-repo/flathub-beta.flatpakrepo", "system")
+        success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/beta-repo/flathub-beta.flatpakrepo", self.system_mode)
         if error_message:
             error_dialog = Gtk.MessageDialog(
                 transient_for=None,  # Changed from self
@@ -1167,7 +1254,7 @@ class MainWindow(Gtk.Window):
             )
             error_dialog.run()
             error_dialog.destroy()
-        self.refresh_data()
+        self.refresh_local()
         self.show_category_apps('repositories')
 
     def on_add_repo_button_clicked(self, button):
@@ -1205,10 +1292,7 @@ class MainWindow(Gtk.Window):
 
         if response == Gtk.ResponseType.OK and repo_file_path:
             # Add the repository
-            if not self.system_mode:
-                success, error_message = libflatpak_query.repoadd(repo_file_path)
-            else:
-                success, error_message = libflatpak_query.repoadd(repo_file_path, "system")
+            success, error_message = libflatpak_query.repoadd(repo_file_path, self.system_mode)
             if error_message:
                 error_dialog = Gtk.MessageDialog(
                     transient_for=None,  # Changed from self
@@ -1220,7 +1304,7 @@ class MainWindow(Gtk.Window):
                 )
                 error_dialog.run()
                 error_dialog.destroy()
-            self.refresh_data()
+            self.refresh_local()
             self.show_category_apps('repositories')
 
     def select_default_category(self):
