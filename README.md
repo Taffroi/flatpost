@@ -19,10 +19,10 @@ DONE:
 - GUI layout of search
 - Donate/Support button and function.
 - Install button functions
+- Remove button functions
 - System mode backend
 
 TODO:
-- Remove button functions
 - Update button functions
 - Update management GUI
 - Search function
