@@ -469,11 +469,13 @@ class AppstreamSearcher:
         self.collection_results = []  # Initialize empty list
         self.installed_results = []  # Initialize empty list
         self.updates_results = []  # Initialize empty list
+        self.all_apps = []  # Initialize empty list
 
         total_categories = sum(len(categories) for categories in self.category_groups.values())
         current_category = 0
         # Search for each app in local repositories
         searcher = get_reposearcher(system, refresh)
+        self.all_apps = searcher.get_all_apps()
 
         json_path = "collections_data.json"
         search_result = []
@@ -559,7 +561,7 @@ class AppstreamSearcher:
                     except (IOError, json.JSONDecodeError) as e:
                         print(f"Error loading collections data: {str(e)}")
         # make sure to reset these to empty before refreshing.
-        return self.category_results, self.collection_results, self.installed_results, self.updates_results
+        return self.category_results, self.collection_results, self.installed_results, self.updates_results, self.all_apps
 
 def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple[bool, str]:
     """

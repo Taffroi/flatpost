@@ -14,6 +14,7 @@ class MainWindow(Gtk.Window):
         super().__init__()
 
         # Store search results as an instance variable
+        self.all_apps = []
         self.category_results = []  # Initialize empty list
         self.collection_results = []  # Initialize empty list
         self.installed_results = []  # Initialize empty list
@@ -207,11 +208,12 @@ class MainWindow(Gtk.Window):
         # Define thread target function
         def refresh_target():
             try:
-                category_results, collection_results, installed_results, updates_results = searcher.retrieve_metadata(self.system_mode)
+                category_results, collection_results, installed_results, updates_results, all_apps = searcher.retrieve_metadata(self.system_mode)
                 self.category_results = category_results
                 self.collection_results = collection_results
                 self.installed_results = installed_results
                 self.updates_results = updates_results
+                self.all_apps = all_apps
             except Exception as e:
                 message_type = Gtk.MessageType.ERROR
                 dialog = Gtk.MessageDialog(
@@ -432,6 +434,11 @@ class MainWindow(Gtk.Window):
 
     def on_search_changed(self, searchentry):
         """Handle search text changes"""
+        pass  # Don't perform search on every keystroke
+
+
+    def on_search_activate(self, searchentry):
+        """Handle Enter key press in search"""
         search_term = searchentry.get_text().lower()
         if not search_term:
             # Reset to showing all categories when search is empty
@@ -454,10 +461,6 @@ class MainWindow(Gtk.Window):
         # Show search results
         self.show_search_results(filtered_apps)
 
-    def on_search_activate(self, searchentry):
-        """Handle Enter key press in search"""
-        self.on_search_changed(searchentry)
-
     def show_search_results(self, apps):
         """Display search results in the right panel"""
         # Clear existing content
@@ -467,8 +470,8 @@ class MainWindow(Gtk.Window):
         # Display each application
         for app in apps:
             details = app.get_details()
-            is_installed = details['id'] in installed_package_ids
-            is_updatable = details['id'] in updatable_package_ids
+            is_installed = details['id'] in self.installed_results
+            is_updatable = details['id'] in self.updates_results
 
             # Create application container
             app_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
