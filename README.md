@@ -21,11 +21,11 @@ DONE:
 - Install button functions
 - Remove button functions
 - System mode backend
+- Search function
 
 TODO:
 - Update button functions
 - Update management GUI
-- Search function
 - System mode toggle
 - Refresh metadata button
 - List Applications only checkbox
