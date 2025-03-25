@@ -596,9 +596,10 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                remove_icon = Gio.Icon.new_for_string('list-remove')
-                button.set_image(Gtk.Image.new_from_gicon(remove_icon, Gtk.IconSize.BUTTON))
-                button.get_style_context().add_class("dark-remove-button")
+                if button:
+                    remove_icon = Gio.Icon.new_for_string('list-remove')
+                    button.set_image(Gtk.Image.new_from_gicon(remove_icon, Gtk.IconSize.BUTTON))
+                    button.get_style_context().add_class("dark-remove-button")
             else:
                 button = self.create_button(
                     self.on_install_clicked,
@@ -606,9 +607,10 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                install_icon = Gio.Icon.new_for_string('list-add')
-                button.set_image(Gtk.Image.new_from_gicon(install_icon, Gtk.IconSize.BUTTON))
-                button.get_style_context().add_class("dark-install-button")
+                if button:
+                    install_icon = Gio.Icon.new_for_string('list-add')
+                    button.set_image(Gtk.Image.new_from_gicon(install_icon, Gtk.IconSize.BUTTON))
+                    button.get_style_context().add_class("dark-install-button")
             buttons_box.pack_end(button, False, False, 0)
 
             # Add Update button if available
@@ -619,10 +621,11 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                update_icon = Gio.Icon.new_for_string('synchronize')
-                update_button.set_image(Gtk.Image.new_from_gicon(update_icon, Gtk.IconSize.BUTTON))
-                update_button.get_style_context().add_class("dark-install-button")
-                buttons_box.pack_end(update_button, False, False, 0)
+                if update_button:
+                    update_icon = Gio.Icon.new_for_string('synchronize')
+                    update_button.set_image(Gtk.Image.new_from_gicon(update_icon, Gtk.IconSize.BUTTON))
+                    update_button.get_style_context().add_class("dark-install-button")
+                    buttons_box.pack_end(update_button, False, False, 0)
 
             # Details button
             details_btn = self.create_button(
@@ -630,10 +633,11 @@ class MainWindow(Gtk.Window):
                 app,
                 None
             )
-            details_icon = Gio.Icon.new_for_string('question')
-            details_btn.set_image(Gtk.Image.new_from_gicon(details_icon, Gtk.IconSize.BUTTON))
-            details_btn.get_style_context().add_class("dark-install-button")
-            buttons_box.pack_end(details_btn, False, False, 0)
+            if details_btn:
+                details_icon = Gio.Icon.new_for_string('question')
+                details_btn.set_image(Gtk.Image.new_from_gicon(details_icon, Gtk.IconSize.BUTTON))
+                details_btn.get_style_context().add_class("dark-install-button")
+                buttons_box.pack_end(details_btn, False, False, 0)
 
             # Donate button with condition
             donate_btn = self.create_button(
@@ -949,7 +953,7 @@ class MainWindow(Gtk.Window):
             icon_box.set_size_request(148, -1)
 
             # Create and add the icon
-            icon = Gtk.Image.new_from_file(f"{details['icon_path_128']}/{details['icon_filename']}")
+            icon = Gtk.Image.new_from_file(f"{details['icon_path_64']}/{details['icon_filename']}")
             icon.set_size_request(48, 48)
             icon_box.pack_start(icon, True, True, 0)
 
@@ -1003,9 +1007,10 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                remove_icon = Gio.Icon.new_for_string('list-remove')
-                button.set_image(Gtk.Image.new_from_gicon(remove_icon, Gtk.IconSize.BUTTON))
-                button.get_style_context().add_class("dark-remove-button")
+                if button:
+                    remove_icon = Gio.Icon.new_for_string('list-remove')
+                    button.set_image(Gtk.Image.new_from_gicon(remove_icon, Gtk.IconSize.BUTTON))
+                    button.get_style_context().add_class("dark-remove-button")
             else:
                 button = self.create_button(
                     self.on_install_clicked,
@@ -1013,9 +1018,10 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                install_icon = Gio.Icon.new_for_string('list-add')
-                button.set_image(Gtk.Image.new_from_gicon(install_icon, Gtk.IconSize.BUTTON))
-                button.get_style_context().add_class("dark-install-button")
+                if button:
+                    install_icon = Gio.Icon.new_for_string('list-add')
+                    button.set_image(Gtk.Image.new_from_gicon(install_icon, Gtk.IconSize.BUTTON))
+                    button.get_style_context().add_class("dark-install-button")
             buttons_box.pack_end(button, False, False, 0)
 
             # Add Update button if available
@@ -1026,10 +1032,11 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                update_icon = Gio.Icon.new_for_string('synchronize')
-                update_button.set_image(Gtk.Image.new_from_gicon(update_icon, Gtk.IconSize.BUTTON))
-                update_button.get_style_context().add_class("dark-install-button")
-                buttons_box.pack_end(update_button, False, False, 0)
+                if update_button:
+                    update_icon = Gio.Icon.new_for_string('synchronize')
+                    update_button.set_image(Gtk.Image.new_from_gicon(update_icon, Gtk.IconSize.BUTTON))
+                    update_button.get_style_context().add_class("dark-install-button")
+                    buttons_box.pack_end(update_button, False, False, 0)
 
             # Details button
             details_btn = self.create_button(
@@ -1037,10 +1044,11 @@ class MainWindow(Gtk.Window):
                 app,
                 None
             )
-            details_icon = Gio.Icon.new_for_string('question')
-            details_btn.set_image(Gtk.Image.new_from_gicon(details_icon, Gtk.IconSize.BUTTON))
-            details_btn.get_style_context().add_class("dark-install-button")
-            buttons_box.pack_end(details_btn, False, False, 0)
+            if details_btn:
+                details_icon = Gio.Icon.new_for_string('question')
+                details_btn.set_image(Gtk.Image.new_from_gicon(details_icon, Gtk.IconSize.BUTTON))
+                details_btn.get_style_context().add_class("dark-install-button")
+                buttons_box.pack_end(details_btn, False, False, 0)
 
             # Donate button with condition
             donate_btn = self.create_button(

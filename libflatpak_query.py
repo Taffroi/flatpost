@@ -463,105 +463,136 @@ class AppstreamSearcher:
 
 
     def retrieve_metadata(self, system=False, refresh=True):
+        """Retrieve and refresh metadata for Flatpak repositories."""
+        self._initialize_metadata()
 
-        # make sure to reset these to empty before refreshing.
-        self.category_results = []  # Initialize empty list
-        self.collection_results = []  # Initialize empty list
-        self.installed_results = []  # Initialize empty list
-        self.updates_results = []  # Initialize empty list
-        self.all_apps = []  # Initialize empty list
+        if not check_internet():
+            return self._handle_offline_mode()
 
-        total_categories = sum(len(categories) for categories in self.category_groups.values())
-        current_category = 0
-        # Search for each app in local repositories
         searcher = get_reposearcher(system, refresh)
         self.all_apps = searcher.get_all_apps()
 
+        return self._process_categories(searcher)
+
+    def _initialize_metadata(self):
+        """Initialize empty lists for metadata storage."""
+        self.category_results = []
+        self.collection_results = []
+        self.installed_results = []
+        self.updates_results = []
+        self.all_apps = []
+
+    def _handle_offline_mode(self):
+        """Handle metadata retrieval when offline."""
         json_path = "collections_data.json"
-        search_result = []
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                collections_data = json.load(f)
+                return self._process_offline_data(collections_data)
+        except (IOError, json.JSONDecodeError) as e:
+            logger.error(f"Error loading offline data: {str(e)}")
+            return None, [], [], [], []
+
+    def _process_offline_data(self, collections_data):
+        """Process cached collections data when offline."""
+        for collection in collections_data:
+            category = collection['category']
+            if category in self.category_groups['collections']:
+                apps = [app['app_id'] for app in collection['data'].get('hits', [])]
+                for app_id in apps:
+                    search_result = self.search_flatpak(app_id, 'flathub')
+                    self.collection_results.extend(search_result)
+        return self._get_current_results()
+
+    def _process_categories(self, searcher):
+        """Process categories and retrieve metadata."""
+        total_categories = sum(len(categories) for categories in self.category_groups.values())
+        current_category = 0
+
         for group_name, categories in self.category_groups.items():
-            # Process categories one at a time to keep GUI responsive
             for category, title in categories.items():
                 if category not in self.category_groups['system']:
-                    # Preload the currently saved collections data first
-                    try:
-                        with open(json_path, 'r', encoding='utf-8') as f:
-                            collections_data = json.load(f)
-                            for collection in collections_data:
-                                if collection['category'] == category:
-                                    apps =  [app['app_id'] for app in collection['data'].get('hits', [])]
-                                    for app_id in apps:
-                                        search_result = searcher.search_flatpak(app_id, 'flathub')
-                                        self.collection_results.extend(search_result)
-                    except (IOError, json.JSONDecodeError) as e:
-                        print(f"Error loading collections data: {str(e)}")
-                    # Try to get apps from Flathub API if internet is available
-                    if check_internet():
-                        # Get modification time in seconds since epoch
-                        mod_time = os.path.getmtime(json_path)
-                        # Calculate 24 hours in seconds
-                        hours_24 = 24 * 3600
-                        # Check if file is older than 24 hours
-                        if (time.time() - mod_time) > hours_24:
-                            api_data = self.fetch_flathub_category_apps(category)
-                            if api_data:
-                                apps = api_data['hits']
-
-                                for app in apps:
-                                    app_id = app['app_id']
-                                    # Search for the app in local repositories
-                                    search_result = searcher.search_flatpak(app_id, 'flathub')
-                                    self.category_results.extend(search_result)
-                    else:
-                        apps = searcher.get_all_apps('flathub')
-                        for app in apps:
-                            details = app.get_details()
-                            if category in details['categories']:
-                                search_result = searcher.search_flatpak(details['name'], 'flathub')
-                                self.category_results.extend(search_result)
-
-                    current_category += 1
-
-                    # Update progress bar
-                    self.refresh_progress = (current_category / total_categories) * 100
+                    self._process_category(searcher, category, current_category, total_categories)
                 else:
-                    if "installed" in category:
-                        installed_apps = searcher.get_installed_apps()
-                        for app_id, repo_name, repo_type in installed_apps:
-                            parts = app_id.split('/')
-                            app_id = parts[parts.index('app') + 1]
-                            if repo_name:
-                                search_result = searcher.search_flatpak(app_id, repo_name)
-                                self.installed_results.extend(search_result)
-                    elif "updates" in category:
-                        updates = searcher.check_updates()
-                        for repo_name, app_id, repo_type in updates:
-                            if repo_name:
-                                search_result = searcher.search_flatpak(app_id, repo_name)
-                                self.updates_results.extend(search_result)
-        self.save_collections_data()
+                    self._process_system_category(searcher, category)
+                current_category += 1
 
-        # load collections from json file again
-        # we do this in one go after all of the data from each category has been saved to the json file.
-        # this time we update entries that already exist and add new entries that don't exist.
-        for group_name, categories in self.category_groups.items():
-            for category, title in categories.items():
-                if category in self.category_groups['collections']:
-                    try:
-                        with open(json_path, 'r', encoding='utf-8') as f:
-                            collections_data = json.load(f)
-                            for collection in collections_data:
-                                if collection['category'] == category:
-                                    apps =  [app['app_id'] for app in collection['data'].get('hits', [])]
-                                    new_results = []
-                                    for app_id in apps:
-                                        search_result = searcher.search_flatpak(app_id, 'flathub')
-                                        new_results.extend(search_result)
-                                    self.update_collection_results(new_results)
-                    except (IOError, json.JSONDecodeError) as e:
-                        print(f"Error loading collections data: {str(e)}")
-        # make sure to reset these to empty before refreshing.
-        return self.category_results, self.collection_results, self.installed_results, self.updates_results, self.all_apps
+        return self._get_current_results()
+
+    def _process_category(self, searcher, category, current_category, total_categories):
+        """Process a single category and retrieve its metadata."""
+        json_path = "collections_data.json"
+
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                collections_data = json.load(f)
+                self._update_from_collections(collections_data, category)
+        except (IOError, json.JSONDecodeError) as e:
+            logger.error(f"Error loading collections data: {str(e)}")
+
+        if self._should_refresh_category(category):
+            self._refresh_category_data(searcher, category)
+
+        self.refresh_progress = (current_category / total_categories) * 100
+
+    def _update_from_collections(self, collections_data, category):
+        """Update results from cached collections data."""
+        for collection in collections_data:
+            if collection['category'] == category:
+                apps = [app['app_id'] for app in collection['data'].get('hits', [])]
+                for app_id in apps:
+                    search_result = self.search_flatpak(app_id, 'flathub')
+                    self.collection_results.extend(search_result)
+
+    def _should_refresh_category(self, category):
+        """Check if category data needs refresh."""
+        json_path = "collections_data.json"
+        try:
+            mod_time = os.path.getmtime(json_path)
+            return (time.time() - mod_time) > 24 * 3600
+        except OSError:
+            return True
+
+    def _refresh_category_data(self, searcher, category):
+        """Refresh category data from Flathub API."""
+        try:
+            api_data = self.fetch_flathub_category_apps(category)
+            if api_data:
+                apps = api_data['hits']
+                for app in apps:
+                    app_id = app['app_id']
+                    search_result = searcher.search_flatpak(app_id, 'flathub')
+                    if category in self.category_groups['collections']:
+                        self.update_collection_results(search_result)
+                    else:
+                        self.category_results.extend(search_result)
+        except requests.RequestException as e:
+            logger.error(f"Error refreshing category {category}: {str(e)}")
+
+    def _process_system_category(self, searcher, category):
+        """Process system-related categories."""
+        if "installed" in category:
+            installed_apps = searcher.get_installed_apps()
+            for app_id, repo_name, repo_type in installed_apps:
+                parts = app_id.split('/')
+                app_id = parts[parts.index('app') + 1]
+                if repo_name:
+                    search_result = searcher.search_flatpak(app_id, repo_name)
+                    self.installed_results.extend(search_result)
+        elif "updates" in category:
+            updates = searcher.check_updates()
+            for app_id, repo_name, repo_type in updates:
+                if repo_name:
+                    search_result = searcher.search_flatpak(app_id, repo_name)
+                    self.updates_results.extend(search_result)
+
+    def _get_current_results(self):
+        """Return current metadata results."""
+        return (self.category_results,
+                self.collection_results,
+                self.installed_results,
+                self.updates_results,
+                self.all_apps)
 
 def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple[bool, str]:
     """
@@ -677,6 +708,10 @@ def repotoggle(repo, toggle=True, system=False):
     Returns:
         tuple: (success, error_message)
     """
+
+    if not repo:
+        return False, "Repository name cannot be empty"
+
     if system is False:
         installation = get_installation()
     else:
@@ -689,7 +724,7 @@ def repotoggle(repo, toggle=True, system=False):
 
         remote.set_disabled(not toggle)
 
-    # Modify the remote's disabled status
+        # Modify the remote's disabled status
         success = installation.modify_remote(
             remote,
             None
@@ -702,7 +737,9 @@ def repotoggle(repo, toggle=True, system=False):
             return True, message
 
     except GLib.GError as e:
-        return False, f"Failed to toggle repository: {str(e)}."
+        return False, f"Failed to toggle repository: {str(e)}"
+
+    return False, "Operation failed"
 
 def repolist(system=False):
     if system is False:
@@ -810,8 +847,6 @@ def download_repo(url):
 
 
 def main():
-    """Main function demonstrating Flatpak information retrieval"""
-
     parser = argparse.ArgumentParser(description='Search Flatpak packages')
     parser.add_argument('--id', help='Application ID to search for')
     parser.add_argument('--repo', help='Filter results to specific repository')
@@ -827,8 +862,8 @@ def main():
                        help='Add a new repository from a .flatpakrepo file')
     parser.add_argument('--remove-repo', type=str, metavar='REPO_NAME',
                        help='Remove a Flatpak repository')
-    parser.add_argument('--toggle-repo', type=str, nargs=2,
-                       metavar=('REPO_NAME', 'ENABLE/DISABLE'),
+    parser.add_argument('--toggle-repo', type=str,
+                       metavar=('ENABLE/DISABLE'),
                        help='Enable or disable a repository')
     parser.add_argument('--install', type=str, metavar='APP_ID',
                        help='Install a Flatpak package')
@@ -837,108 +872,137 @@ def main():
     parser.add_argument('--system', action='store_true', help='Install as system instead of user')
 
     args = parser.parse_args()
-    app_id = args.id
-    repo_filter = args.repo
-    list_all = args.list_all
-    show_categories = args.categories
 
-    # Repository management operations
+    # Handle repository operations
     if args.toggle_repo:
-        repo_name, enable_str = args.toggle_repo
-        if enable_str.lower() not in ['true', 'false', 'enable', 'disable']:
-            print("Invalid enable/disable value. Use 'true/false' or 'enable/disable'")
-            sys.exit(1)
-
-        enable = enable_str.lower() in ['true', 'enable']
-        success, message = repotoggle(repo_name, enable, args.system)
-        print(message)
-        sys.exit(0 if success else 1)
+        handle_repo_toggle(args)
+        return
 
     if args.list_repos:
-        repos = repolist(args.system)
-        print("\nConfigured Repositories:")
-        for repo in repos:
-            print(f"- {repo.get_name()} ({repo.get_url()})")
+        handle_list_repos(args)
         return
 
     if args.add_repo:
-        success, error_message = repoadd(args.add_repo, args.system)
-        if error_message:
-            print(error_message)
-            sys.exit(1)
-        else:
-            print(f"\nRepository added successfully: {args.add_repo}")
+        handle_add_repo(args)
         return
 
     if args.remove_repo:
-        repodelete(args.remove_repo, args.system)
-        print(f"\nRepository removed successfully: {args.remove_repo}")
+        handle_remove_repo(args)
         return
 
+    # Handle package operations
     searcher = get_reposearcher(args.system)
 
-    # Install a flatpak
     if args.install:
-        packagelist = searcher.search_flatpak(args.install, args.repo)
-        for package in packagelist:
-            if package.id == args.install:
-                success, message = install_flatpak(package, args.repo, args.system)
-                print(message)
-                sys.exit(0 if success else 1)
+        handle_install(args, searcher)
+        return
 
-    # remove a flatpak
     if args.remove:
-        packagelist = searcher.search_flatpak(args.remove, args.repo)
-        for package in packagelist:
-            if package.id == args.remove:
-                success, message = remove_flatpak(package, args.repo, args.system)
-                print(message)
-                sys.exit(0 if success else 1)
+        handle_remove(args, searcher)
+        return
 
+    # Handle information operations
     if args.list_installed:
-        installed_apps = searcher.get_installed_apps(args.system)
-        print(f"\nInstalled Flatpak Applications ({len(installed_apps)}):")
-        for app_id, repo_name, repo_type in installed_apps:
-            parts = app_id.split('/')
-            app_id = parts[parts.index('app') + 1]
-            print(f"{app_id} (Repository: {repo_name}, Installation: {repo_type})")
+        handle_list_installed(args, searcher)
         return
 
     if args.check_updates:
-        updates = searcher.check_updates(args.system)
-        print(f"\nAvailable Updates ({len(updates)}):")
-        for repo_name, app_id, repo_type in updates:
-            print(f"{app_id} (Repository: {repo_name}, Installation: {repo_type})")
+        handle_check_updates(args, searcher)
         return
 
-    if list_all:
-        apps = searcher.get_all_apps(repo_filter,args.system)
+    if args.list_all:
+        handle_list_all(args, searcher)
+        return
+
+    if args.categories:
+        handle_categories(args, searcher)
+        return
+
+    if args.id:
+        handle_search(args, searcher)
+        return
+
+    print("Missing options. Use -h for help.")
+
+def handle_repo_toggle(args):
+    repo_name = args.repo
+    if not repo_name:
+        print("Error: must specify a repo.")
+        sys.exit(1)
+
+    get_status = args.toggle_repo.lower() in ['true', 'enable']
+    success, message = repotoggle(repo_name, get_status, args.system)
+    print(message)
+    sys.exit(0 if success else 1)
+
+def handle_list_repos(args):
+    repos = repolist(args.system)
+    print("\nConfigured Repositories:")
+    for repo in repos:
+        print(f"- {repo.get_name()} ({repo.get_url()})")
+
+def handle_add_repo(args):
+    success, error_message = repoadd(args.add_repo, args.system)
+    if error_message:
+        print(error_message)
+        sys.exit(1)
+    print(f"\nRepository added successfully: {args.add_repo}")
+
+def handle_remove_repo(args):
+    repodelete(args.remove_repo, args.system)
+    print(f"\nRepository removed successfully: {args.remove_repo}")
+
+def handle_install(args, searcher):
+    packagelist = searcher.search_flatpak(args.install, args.repo)
+    for package in packagelist:
+        if package.id == args.install:
+            success, message = install_flatpak(package, args.repo, args.system)
+            print(message)
+            sys.exit(0 if success else 1)
+
+def handle_remove(args, searcher):
+    packagelist = searcher.search_flatpak(args.remove, args.repo)
+    for package in packagelist:
+        if package.id == args.remove:
+            success, message = remove_flatpak(package, args.repo, args.system)
+            print(message)
+            sys.exit(0 if success else 1)
+
+def handle_list_installed(args, searcher):
+    installed_apps = searcher.get_installed_apps(args.system)
+    print(f"\nInstalled Flatpak Applications ({len(installed_apps)}):")
+    for app_id, repo_name, repo_type in installed_apps:
+        parts = app_id.split('/')
+        app_id = parts[parts.index('app') + 1]
+        print(f"{app_id} (Repository: {repo_name}, Installation: {repo_type})")
+
+def handle_check_updates(args, searcher):
+    updates = searcher.check_updates(args.system)
+    print(f"\nAvailable Updates ({len(updates)}):")
+    for repo_name, app_id, repo_type in updates:
+        print(f"{app_id} (Repository: {repo_name}, Installation: {repo_type})")
+
+def handle_list_all(args, searcher):
+    apps = searcher.get_all_apps(args.repo)
+    for app in apps:
+        details = app.get_details()
+        print(f"Name: {details['name']}")
+        print(f"Categories: {', '.join(details['categories'])}")
+        print("-" * 50)
+
+def handle_categories(args, searcher):
+    categories = searcher.get_categories_summary(args.repo)
+    for category, apps in categories.items():
+        print(f"\n{category.upper()}:")
         for app in apps:
-            details = app.get_details()
-            print(f"Name: {details['name']}")
-            print(f"Categories: {', '.join(details['categories'])}")
-            print("-" * 50)
-        return
+            print(f"  - {app.name} ({app.id})")
 
-    if show_categories:
-        categories = searcher.get_categories_summary(repo_filter, args.system)
-        for category, apps in categories.items():
-            print(f"\n{category.upper()}:")
-            for app in apps:
-                print(f"  - {app.name} ({app.id})")
-        return
-
-    if app_id == "" or len(app_id) < 3:
-        print("Invalid App ID.")
-        return
-
-    logger.debug(f"(flatpak_search) key: {app_id}")
-
-    # Now you can call search method on the searcher instance
-    if repo_filter:
-        search_results = searcher.search_flatpak(app_id, repo_filter)
+def handle_search(args, searcher):
+    if args.repo:
+        search_results = searcher.search_flatpak(args.id, args.repo)
     else:
-        search_results = searcher.search_flatpak(app_id)
+        search_results = searcher.search_flatpak(args.id)
+
     if search_results:
         for package in search_results:
             details = package.get_details()
@@ -953,17 +1017,14 @@ def main():
             print(f"Icon FILE: {details['icon_filename']}")
             print(f"Developer: {details['developer']}")
             print(f"Categories: {details['categories']}")
-
             urls = details['urls']
             print(f"Donation URL: {urls['donation']}")
             print(f"Homepage URL: {urls['homepage']}")
             print(f"Bug Tracker URL: {urls['bugtracker']}")
-
             print(f"Bundle ID: {details['bundle_id']}")
             print(f"Match Type: {details['match_type']}")
             print(f"Repo: {details['repo']}")
             print("-" * 50)
-    return
 
 if __name__ == "__main__":
     main()
