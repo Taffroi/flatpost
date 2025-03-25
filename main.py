@@ -18,6 +18,7 @@ class MainWindow(Gtk.Window):
         self.collection_results = []  # Initialize empty list
         self.installed_results = []  # Initialize empty list
         self.updates_results = []  # Initialize empty list
+        self.system_mode = None
 
         # Set window size
         self.set_default_size(1280, 720)
@@ -161,7 +162,10 @@ class MainWindow(Gtk.Window):
 
     def populate_repo_dropdown(self):
         # Get list of repositories
-        libflatpak_query.repolist()
+        if not self.system_mode:
+            libflatpak_query.repolist()
+        else:
+            libflatpak_query.repolist("system")
         repos = libflatpak_query.repolist()
 
         # Clear existing items
@@ -199,7 +203,10 @@ class MainWindow(Gtk.Window):
         # Show the dialog
         dialog.show_all()
 
-        searcher = libflatpak_query.get_reposearcher()
+        if not self.system_mode:
+            searcher = libflatpak_query.get_reposearcher()
+        else:
+            searcher = libflatpak_query.get_reposearcher("system")
 
         # Define thread target function
         def refresh_target():
@@ -680,7 +687,10 @@ class MainWindow(Gtk.Window):
             self.right_container.pack_start(header_bar, False, False, 0)
 
             # Get list of repositories
-            repos = libflatpak_query.repolist()
+            if not self.system_mode:
+                repos = libflatpak_query.repolist()
+            else:
+                repos = libflatpak_query.repolist("system")
 
             # Create a scrolled window for repositories
             scrolled_window = Gtk.ScrolledWindow()
@@ -885,12 +895,104 @@ class MainWindow(Gtk.Window):
         self.right_container.show_all()  # Show all widgets after adding them
 
     def on_install_clicked(self, button, app):
-        """Handle the Install button click"""
+        """Handle the Install button click with installation options"""
         details = app.get_details()
-        print(f"Installing application: {details['name']}")
-        # Implement installation logic here
-        # Example:
-        # Flatpak.install(app_id=details['id'])
+        app_id = details['id']
+
+        # Create dialog
+        dialog = Gtk.Dialog(
+            title=f"Install {details['name']}",
+            transient_for=self,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        # Add buttons using the new method
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Install", Gtk.ResponseType.OK)
+
+        # Create content area
+        content_area = dialog.get_content_area()
+        content_area.set_spacing(12)
+        content_area.set_border_width(12)
+
+        # Create repository dropdown
+        repo_combo = Gtk.ComboBoxText()
+        repo_combo.set_hexpand(True)
+
+        # Search for available repositories containing this app
+        if not self.system_mode:
+            searcher = libflatpak_query.get_reposearcher()
+            content_area.pack_start(Gtk.Label(label="Installation Type: User"), False, False, 0)
+        else:
+            searcher = libflatpak_query.get_reposearcher("system")
+            content_area.pack_start(Gtk.Label(label="Installation Type: System"), False, False, 0)
+
+        # Populate repository dropdown
+        available_repos = set()
+        if not self.system_mode:
+            repos = libflatpak_query.repolist()
+        else:
+            repos = libflatpak_query.repolist("system")
+        for repo in repos:
+            if not repo.get_disabled():
+                search_results = searcher.search_flatpak(app_id, repo.get_name())
+                if search_results:
+                    available_repos.add(repo)
+
+        # Add repositories to dropdown
+        if available_repos:
+            repo_combo.remove_all()  # Clear any existing items
+
+            # Add all repositories
+            for repo in available_repos:
+                repo_combo.append_text(repo.get_name())
+
+            # Only show dropdown if there are multiple repositories
+            if len(available_repos) >= 2:
+                # Remove and re-add with dropdown visible
+                content_area.pack_start(repo_combo, False, False, 0)
+                repo_combo.set_button_sensitivity(Gtk.SensitivityType.AUTO)
+                repo_combo.set_active(0)
+            else:
+                # Remove and re-add without dropdown
+                content_area.remove(repo_combo)
+                repo_combo.set_active(0)
+        else:
+            repo_combo.remove_all()  # Clear any existing items
+            repo_combo.append_text("No repositories available")
+            content_area.remove(repo_combo)
+
+        # Show dialog
+        dialog.show_all()
+
+        # Run dialog
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            selected_repo = repo_combo.get_active_text()
+
+            # Perform installation
+            # Get selected values
+            if not self.system_mode:
+                print(f"Installing {details['name']} for User from {selected_repo}")
+                success, message = libflatpak_query.install_flatpak(app.id, selected_repo)
+            else:
+                print(f"Installing {details['name']} for System from {selected_repo}")
+                success, message = libflatpak_query.install_flatpak(app.id, selected_repo, "system")
+            message_type=Gtk.MessageType.INFO
+            if not success:
+                message_type=Gtk.MessageType.ERROR
+            if message:
+                finished_dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    modal=True,
+                    destroy_with_parent=True,
+                    message_type=message_type,
+                    buttons=Gtk.ButtonsType.OK,
+                    text=message
+                )
+                finished_dialog.run()
+                finished_dialog.destroy()
+        dialog.destroy()
 
     def on_remove_clicked(self, button, app):
         """Handle the Remove button click"""
@@ -932,7 +1034,10 @@ class MainWindow(Gtk.Window):
         checkbox.get_parent().set_sensitive(True)
         if checkbox.get_active():
             checkbox.get_style_context().remove_class("dim-label")
-            success, message = libflatpak_query.repotoggle(repo.get_name(), True)
+            if not self.system_mode:
+                success, message = libflatpak_query.repotoggle(repo.get_name(), True)
+            else:
+                success, message = libflatpak_query.repotoggle(repo.get_name(), True, "system")
             message_type = Gtk.MessageType.INFO
             if success:
                 self.refresh_data()
@@ -952,7 +1057,10 @@ class MainWindow(Gtk.Window):
                 dialog.destroy()
         else:
             checkbox.get_style_context().add_class("dim-label")
-            success, message = libflatpak_query.repotoggle(repo.get_name(), False)
+            if not self.system_mode:
+                success, message = libflatpak_query.repotoggle(repo.get_name(), False)
+            else:
+                success, message = libflatpak_query.repotoggle(repo.get_name(), False, "system")
             message_type = Gtk.MessageType.INFO
             if success:
                 self.refresh_data()
@@ -987,7 +1095,10 @@ class MainWindow(Gtk.Window):
 
         if response == Gtk.ResponseType.YES:
             try:
-                libflatpak_query.repodelete(repo.get_name())
+                if not self.system_mode:
+                    libflatpak_query.repodelete(repo.get_name())
+                else:
+                    libflatpak_query.repodelete(repo.get_name(), "system")
                 self.refresh_data()
                 self.show_category_apps('repositories')
             except GLib.GError as e:
@@ -1020,7 +1131,10 @@ class MainWindow(Gtk.Window):
     def on_add_flathub_repo_button_clicked(self, button):
         """Handle the Add Flathub Repository button click"""
         # Add the repository
-        success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/repo/flathub.flatpakrepo")
+        if not self.system_mode:
+            success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/repo/flathub.flatpakrepo")
+        else:
+            success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/repo/flathub.flatpakrepo", "system")
         if error_message:
             error_dialog = Gtk.MessageDialog(
                 transient_for=None,  # Changed from self
@@ -1038,7 +1152,10 @@ class MainWindow(Gtk.Window):
     def on_add_flathub_beta_repo_button_clicked(self, button):
         """Handle the Add Flathub Beta Repository button click"""
         # Add the repository
-        success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/beta-repo/flathub-beta.flatpakrepo")
+        if not self.system_mode:
+            success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/beta-repo/flathub-beta.flatpakrepo")
+        else:
+            success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/beta-repo/flathub-beta.flatpakrepo", "system")
         if error_message:
             error_dialog = Gtk.MessageDialog(
                 transient_for=None,  # Changed from self
@@ -1088,7 +1205,10 @@ class MainWindow(Gtk.Window):
 
         if response == Gtk.ResponseType.OK and repo_file_path:
             # Add the repository
-            success, error_message = libflatpak_query.repoadd(repo_file_path)
+            if not self.system_mode:
+                success, error_message = libflatpak_query.repoadd(repo_file_path)
+            else:
+                success, error_message = libflatpak_query.repoadd(repo_file_path, "system")
             if error_message:
                 error_dialog = Gtk.MessageDialog(
                     transient_for=None,  # Changed from self

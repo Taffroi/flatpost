@@ -1,4 +1,38 @@
 #!/usr/bin/env python3
+
+### Documentation largely taken from:
+###
+### 1. https://lazka.github.io/pgi-docs/Flatpak-1.0
+### 2. https://flathub.org/api/v2/docs#/
+###
+### Classes AppStreamPackage and AppStreamSearcher extended from original by Tim Tim Lauridsen at:
+###
+### https://github.com/timlau/yumex-ng/blob/main/yumex/backend/flatpak/search.py
+
+# Original GPL v3 Code Copyright:
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Copyright (C) 2024 Tim Lauridsen
+#
+# Modifications copyright notice
+# Copyright (C) 2025 Thomas Crider
+#
+# Original code has been completely removed except
+# AppStreamPackage and AppStreamSearcher classes
+# which have been modified and extended.
+
+
 import gi
 gi.require_version("AppStream", "1.0")
 gi.require_version("Flatpak", "1.0")
@@ -9,6 +43,7 @@ import logging
 from enum import IntEnum
 import argparse
 import requests
+import urllib
 from urllib.parse import quote_plus
 import tempfile
 import os
@@ -158,7 +193,6 @@ class AppstreamSearcher:
 
     def __init__(self) -> None:
         self.remotes: dict[str, list[AppStreamPackage]] = {}
-        self.installed = []
         self.refresh_progress = 0
 
         # Define category groups and their titles
@@ -198,15 +232,14 @@ class AppstreamSearcher:
     def add_remote(self, remote: Flatpak.Remote, inst: Flatpak.Installation):
         """Add packages for a given Flatpak.Remote"""
         remote_name = remote.get_name()
-        self.installed.extend([ref.format_ref() for ref in inst.list_installed_refs_by_kind(Flatpak.RefKind.APP)])
         if remote_name not in self.remotes:
-            self.remotes[remote_name] = self._load_appstream_metadata(remote)
-
-    def _load_appstream_metadata(self, remote: Flatpak.Remote) -> list[AppStreamPackage]:
+            self.remotes[remote_name] = self._load_appstream_metadata(remote, inst)
+    def _load_appstream_metadata(self, remote: Flatpak.Remote, inst: Flatpak.Installation) -> list[AppStreamPackage]:
         """load AppStrean metadata and create AppStreamPackage objects"""
         packages = []
         metadata = AppStream.Metadata.new()
         metadata.set_format_style(AppStream.FormatStyle.CATALOG)
+        inst.update_appstream_full_sync(remote.get_name(), None, None, True)
         appstream_file = Path(remote.get_appstream_dir().get_path() + "/appstream.xml.gz")
         if appstream_file.exists():
             metadata.parse_file(Gio.File.new_for_path(appstream_file.as_posix()), AppStream.FormatKind.XML)
@@ -214,10 +247,8 @@ class AppstreamSearcher:
             i = 0
             for i in range(components.get_size()):
                 component = components.index_safe(i)
-                if component.get_kind() == AppStream.ComponentKind.DESKTOP_APP:
-                    bundle = component.get_bundle(AppStream.BundleKind.FLATPAK).get_id()
-                    if bundle not in self.installed:
-                        packages.append(AppStreamPackage(component, remote))
+                #if component.get_kind() == AppStream.ComponentKind.DESKTOP_APP:
+                packages.append(AppStreamPackage(component, remote))
             return packages
         else:
             logger.debug(f"AppStream file not found: {appstream_file}")
@@ -243,19 +274,17 @@ class AppstreamSearcher:
         """Search packages matching a keyword"""
         search_results = []
         keyword = keyword
-        if repo_name and repo_name in self.remotes.keys():
-            results = self.search_flatpak_repo(keyword, repo_name)
-            for result in results:
-                search_results.append(result)
-            return search_results
-        for remote_name in self.remotes.keys():
-            results = self.search_flatpak_repo(keyword, remote_name)
-            for result in results:
-                search_results.append(result)
+
+        if not repo_name:
+            for remote_name in self.remotes.keys():
+                search_results.extend(self.search_flatpak_repo(keyword, remote_name))
+        else:
+            if repo_name in self.remotes.keys():
+                search_results.extend(self.search_flatpak_repo(keyword, repo_name))
         return search_results
 
 
-    def get_all_apps(self, repo_name=None) -> list[AppStreamPackage]:
+    def get_all_apps(self, repo_name=None, user=None) -> list[AppStreamPackage]:
         """Get all available apps from specified or all repositories"""
         all_packages = []
         if repo_name:
@@ -266,9 +295,9 @@ class AppstreamSearcher:
                 all_packages.extend(self.remotes[remote_name])
         return all_packages
 
-    def get_categories_summary(self, repo_name: str = None) -> dict:
+    def get_categories_summary(self, repo_name=None, user=None) -> dict:
         """Get a summary of all apps grouped by category"""
-        apps = self.get_all_apps(repo_name)
+        apps = self.get_all_apps(repo_name,user)
         categories = {}
 
         for app in apps:
@@ -279,13 +308,14 @@ class AppstreamSearcher:
 
         return categories
 
-    def get_installed_apps(self) -> list[tuple[str, str, str]]:
+    def get_installed_apps(self, user=None) -> list[tuple[str, str, str]]:
         """Get a list of all installed Flatpak applications with their repository source"""
         installed_refs = []
 
-        # Get both system-wide and user installations
-        system_inst = Flatpak.Installation.new_system(None)
-        user_inst = Flatpak.Installation.new_user(None)
+        if not user:
+           installation = get_installation()
+        else:
+           installation = get_installation("system")
 
         def process_installed_refs(inst: Flatpak.Installation, repo_type: str):
             for ref in inst.list_installed_refs_by_kind(Flatpak.RefKind.APP):
@@ -300,8 +330,10 @@ class AppstreamSearcher:
                 installed_refs.append((app_id, remote_name, repo_type))
 
         # Process both system-wide and user installations
-        process_installed_refs(system_inst, "system")
-        process_installed_refs(user_inst, "user")
+        if not user:
+            process_installed_refs(installation, "user")
+        else:
+            process_installed_refs(installation, "system")
 
         # Remove duplicates while maintaining order
         seen = set()
@@ -310,13 +342,14 @@ class AppstreamSearcher:
 
         return unique_installed
 
-    def check_updates(self) -> list[tuple[str, str, str]]:
+    def check_updates(self, user=None) -> list[tuple[str, str, str]]:
         """Check for available updates for installed Flatpak applications"""
         updates = []
 
-        # Get both system-wide and user installations
-        system_inst = Flatpak.Installation.new_system(None)
-        user_inst = Flatpak.Installation.new_user(None)
+        if not user:
+           installation = get_installation()
+        else:
+           installation = get_installation("system")
 
         def check_updates_for_install(inst: Flatpak.Installation, repo_type: str):
             for ref in inst.list_installed_refs_for_update(None):
@@ -330,11 +363,11 @@ class AppstreamSearcher:
 
                 updates.append((remote_name, app_id, repo_type))
 
-        # Check system-wide installation
-        check_updates_for_install(system_inst, "system")
-
-        # Check user installation
-        check_updates_for_install(user_inst, "user")
+        # Process both system-wide and user installations
+        if not user:
+            check_updates_for_install(installation, "user")
+        else:
+            check_updates_for_install(installation, "system")
 
         return updates
 
@@ -409,7 +442,7 @@ class AppstreamSearcher:
 
         self.collection_results = updated_results
 
-    def retrieve_metadata(self):
+    def retrieve_metadata(self, user=None):
 
         # make sure to reset these to empty before refreshing.
         self.category_results = []  # Initialize empty list
@@ -421,7 +454,10 @@ class AppstreamSearcher:
         current_category = 0
 
         # Search for each app in local repositories
-        searcher = get_reposearcher()
+        if not user:
+            searcher = get_reposearcher()
+        else:
+            searcher = get_reposearcher("system")
 
         json_path = "collections_data.json"
         search_result = []
@@ -474,16 +510,15 @@ class AppstreamSearcher:
 
                 else:
                     if "installed" in category:
-                        installed_apps = searcher.get_installed_apps()
+                        installed_apps = searcher.get_installed_apps(user)
                         for app_id, repo_name, repo_type in installed_apps:
                             parts = app_id.split('/')
                             app_id = parts[parts.index('app') + 1]
                             if repo_name:
-                                # Extend the existing list instead of creating a new one
                                 search_result = searcher.search_flatpak(app_id, repo_name)
                                 self.installed_results.extend(search_result)
                     elif "updates" in category:
-                        updates = searcher.check_updates()
+                        updates = searcher.check_updates(user)
                         for repo_name, app_id, repo_type in updates:
                             if repo_name:
                                 search_result = searcher.search_flatpak(app_id, repo_name)
@@ -512,14 +547,97 @@ class AppstreamSearcher:
         # make sure to reset these to empty before refreshing.
         return self.category_results, self.collection_results, self.installed_results, self.updates_results
 
-def get_refresh_progress():
-    searcher = AppstreamSearcher()
-    searcher.add_installation(Flatpak.Installation.new_system())
-    return searcher
+def install_flatpak(app: AppStreamPackage, repo_name=None, user=None) -> tuple[bool, str]:
+    """
+    Install a Flatpak package.
 
-def get_reposearcher():
+    Args:
+        app (AppStreamPackage): The package to install.
+        repo_name (str): Optional repository name to use for installation
+
+    Returns:
+        tuple[bool, str]: (success, message)
+    """
+
+    if not repo_name:
+        repo_name = "flathub"
+
+    if not user:
+        installation = get_installation()
+        searcher = get_reposearcher()
+    else:
+        installation = get_installation("system")
+        searcher = get_reposearcher("system")
+
+    remote = installation.get_remote_by_name(repo_name)
+    if not remote:
+        return False, f"Repository '{repo_name}' not found."
+
+    package_details = searcher.search_flatpak(app.id, repo_name)
+    if not package_details:
+        return False, f"Application '{app.id}' not found in repository '{repo_name}'"
+
+    transaction = Flatpak.Transaction.new_for_installation(installation)
+    # Add the install operation
+    transaction.add_install(repo_name, app.flatpak_bundle, None)
+
+    # Run the transaction
+    try:
+        transaction.run()
+        return True, f"Successfully installed {app.id}"
+    except GLib.Error as e:
+        return False, f"Installation failed: {e}"
+
+def remove_flatpak(app: AppStreamPackage, repo_name=None, user=None) -> tuple[bool, str]:
+    """
+    Remove a Flatpak package using transactions.
+
+    Args:
+        app (AppStreamPackage): The package to install.
+        user (Optional[bool]): Whether to operate on user or system installation
+
+    Returns:
+        Tuple[bool, str]: (success, message)
+    """
+    if not repo_name:
+        repo_name = "flathub"
+
+    # Get the appropriate installation based on user parameter
+    if user is None:
+        installation = get_installation()
+    else:
+        installation = get_installation("system")
+
+    remote = installation.get_remote_by_name(repo_name)
+    if not remote:
+        return False, f"Repository '{repo_name}' not found."
+
+    # Create a new transaction for removal
+    transaction = Flatpak.Transaction.new_for_installation(installation)
+    details = app.get_details()
+    transaction.add_uninstall(details['id'])
+
+    # Run the transaction
+    try:
+        transaction.run()
+        return True, f"Successfully installed {app.id}"
+    except GLib.Error as e:
+        return False, f"Installation failed: {e}"
+
+def get_installation(user=None):
+    if not user:
+        installation = Flatpak.Installation.new_user()
+    else:
+        installation = Flatpak.Installation.new_system()
+    return installation
+
+def get_reposearcher(user=None):
     searcher = AppstreamSearcher()
-    searcher.add_installation(Flatpak.Installation.new_system())
+    if not user:
+        installation = get_installation()
+    else:
+        installation = get_installation("system")
+    searcher.add_installation(installation)
     return searcher
 
 def check_internet():
@@ -530,33 +648,36 @@ def check_internet():
     except requests.ConnectionError:
         return False
 
-def repotoggle(repo, bool=True):
+def repotoggle(repo, toggle=True, user=None):
     """
     Enable or disable a Flatpak repository
 
     Args:
         repo (str): Name of the repository to toggle
-        enable (bool): True to enable, False to disable
+        enable (toggle): True to enable, False to disable
 
     Returns:
         tuple: (success, error_message)
     """
-    installation = Flatpak.Installation.new_system()
+    if not user:
+        installation = get_installation()
+    else:
+        installation = get_installation("system")
 
     try:
         remote = installation.get_remote_by_name(repo)
         if not remote:
             return False, f"Repository '{repo}' not found."
 
-        remote.set_disabled(not bool)
+        remote.set_disabled(not toggle)
 
-       # Modify the remote's disabled status
+    # Modify the remote's disabled status
         success = installation.modify_remote(
             remote,
             None
         )
         if success:
-            if bool:
+            if toggle:
                 message = f"Successfully enabled {repo}."
             else:
                 message = f"Successfully disabled {repo}."
@@ -565,29 +686,40 @@ def repotoggle(repo, bool=True):
     except GLib.GError as e:
         return False, f"Failed to toggle repository: {str(e)}."
 
-def repolist():
-    installation = Flatpak.Installation.new_system()
+def repolist(user=None):
+    if not user:
+        installation = get_installation()
+    else:
+        installation = get_installation("system")
     repos = installation.list_remotes()
     return repos
 
-def repodelete(repo):
-    installation = Flatpak.Installation.new_system()
+def repodelete(repo, user=None):
+    if not user:
+        installation = get_installation()
+    else:
+        installation = get_installation("system")
     installation.remove_remote(repo)
 
-def repoadd(repofile):
+def repoadd(repofile, user=None):
     """Add a new repository using a .flatpakrepo file"""
     # Get existing repositories
-    installation = Flatpak.Installation.new_system()
+    if not user:
+        installation = get_installation()
+    else:
+        installation = get_installation("system")
     existing_repos = installation.list_remotes()
 
     if not repofile.endswith('.flatpakrepo'):
         return False, "Repository file path or URL must end with .flatpakrepo extension."
+
     if repofile_is_url(repofile):
         try:
             local_path = download_repo(repofile)
             repofile = local_path
         except:
             return False, f"Repository file '{repofile}' could not be downloaded."
+
     if not os.path.exists(repofile):
         return False, f"Repository file '{repofile}' does not exist."
 
@@ -680,6 +812,11 @@ def main():
     parser.add_argument('--toggle-repo', type=str, nargs=2,
                        metavar=('REPO_NAME', 'ENABLE/DISABLE'),
                        help='Enable or disable a repository')
+    parser.add_argument('--install', type=str, metavar='APP_ID',
+                       help='Install a Flatpak package')
+    parser.add_argument('--remove', type=str, metavar='APP_ID',
+                       help='Remove a Flatpak package')
+    parser.add_argument('--system', action='store_true', help='Install as system instead of user')
 
     args = parser.parse_args()
     app_id = args.id
@@ -695,19 +832,19 @@ def main():
             sys.exit(1)
 
         enable = enable_str.lower() in ['true', 'enable']
-        success, message = repotoggle(repo_name, enable)
+        success, message = repotoggle(repo_name, enable, args.system)
         print(message)
         sys.exit(0 if success else 1)
 
     if args.list_repos:
-        repos = repolist()
+        repos = repolist(args.system)
         print("\nConfigured Repositories:")
         for repo in repos:
             print(f"- {repo.get_name()} ({repo.get_url()})")
         return
 
     if args.add_repo:
-        success, error_message = repoadd(args.add_repo)
+        success, error_message = repoadd(args.add_repo, args.system)
         if error_message:
             print(error_message)
             sys.exit(1)
@@ -716,15 +853,32 @@ def main():
         return
 
     if args.remove_repo:
-        repodelete(args.remove_repo)
+        repodelete(args.remove_repo, args.system)
         print(f"\nRepository removed successfully: {args.remove_repo}")
         return
 
-    # Create AppstreamSearcher instance
-    searcher = get_reposearcher()
+    searcher = get_reposearcher(args.system)
+
+    # Install a flatpak
+    if args.install:
+        packagelist = searcher.search_flatpak(args.install, args.repo)
+        for package in packagelist:
+            if package.id == args.install:
+                success, message = install_flatpak(package, args.repo, args.system)
+                print(message)
+                sys.exit(0 if success else 1)
+
+    # remove a flatpak
+    if args.remove:
+        packagelist = searcher.search_flatpak(args.remove, args.repo)
+        for package in packagelist:
+            if package.id == args.remove:
+                success, message = remove_flatpak(package, args.repo, args.system)
+                print(message)
+                sys.exit(0 if success else 1)
 
     if args.list_installed:
-        installed_apps = searcher.get_installed_apps()
+        installed_apps = searcher.get_installed_apps(args.system)
         print(f"\nInstalled Flatpak Applications ({len(installed_apps)}):")
         for app_id, repo_name, repo_type in installed_apps:
             parts = app_id.split('/')
@@ -733,14 +887,14 @@ def main():
         return
 
     if args.check_updates:
-        updates = searcher.check_updates()
+        updates = searcher.check_updates(args.system)
         print(f"\nAvailable Updates ({len(updates)}):")
         for repo_name, app_id, repo_type in updates:
             print(f"{app_id} (Repository: {repo_name}, Installation: {repo_type})")
         return
 
     if list_all:
-        apps = searcher.get_all_apps(repo_filter)
+        apps = searcher.get_all_apps(repo_filter,args.system)
         for app in apps:
             details = app.get_details()
             print(f"Name: {details['name']}")
@@ -749,7 +903,7 @@ def main():
         return
 
     if show_categories:
-        categories = searcher.get_categories_summary(repo_filter)
+        categories = searcher.get_categories_summary(repo_filter, args.system)
         for category, apps in categories.items():
             print(f"\n{category.upper()}:")
             for app in apps:
@@ -757,7 +911,7 @@ def main():
         return
 
     if app_id == "" or len(app_id) < 3:
-        self._clear()
+        print("Invalid App ID.")
         return
 
     logger.debug(f"(flatpak_search) key: {app_id}")
