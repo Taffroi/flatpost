@@ -141,6 +141,14 @@ class MainWindow(Gtk.Window):
                 border-color: #18A3FF;
                 box-shadow: 0 0 0 2px rgba(24, 163, 255, 0.2);
             }
+            .item-repo-label {
+                background-color: #333333;
+                color: white;
+                border-radius: 4px;
+                margin: 2px;
+                padding: 2px 4px;
+                font-size: 0.8em;
+            }
         """)
 
         # Add CSS provider to the default screen
@@ -451,15 +459,48 @@ class MainWindow(Gtk.Window):
             details = app.get_details()
             searchable_items.append({
                 'text': f"{details['name']} {details['description']} {details['categories']}".lower(),
-                'app': app
+                'app': app,
+                'id': details['id'].lower(),
+                'name': details['name'].lower()
             })
 
-        # Filter results
-        filtered_apps = [item['app'] for item in searchable_items
-                        if search_term in item['text']]
+        # Filter and rank results
+        filtered_apps = self.rank_search_results(search_term, searchable_items)
 
         # Show search results
         self.show_search_results(filtered_apps)
+
+    def rank_search_results(self, search_term, searchable_items):
+        """Rank search results based on match type"""
+        exact_id_matches = []
+        exact_name_matches = []
+        partial_matches = []
+        other_matches = []
+
+        # Process each item
+        for item in searchable_items:
+            # Check exact ID match
+            if item['id'] == search_term:
+                exact_id_matches.append(item['app'])
+                continue
+
+            # Check exact name match
+            if item['name'] == search_term:
+                exact_name_matches.append(item['app'])
+                continue
+
+            # Check for partial matches longer than 5 characters
+            if len(search_term) > 5:
+                if search_term in item['id'] or search_term in item['name']:
+                    partial_matches.append(item['app'])
+                    continue
+
+            # Check for other matches
+            if search_term in item['text']:
+                other_matches.append(item['app'])
+
+        # Combine results in order of priority
+        return exact_id_matches + exact_name_matches + partial_matches + other_matches
 
     def show_search_results(self, apps):
         """Display search results in the right panel"""
@@ -467,8 +508,26 @@ class MainWindow(Gtk.Window):
         for child in self.right_container.get_children():
             child.destroy()
 
-        # Display each application
+        # Create a dictionary to group apps by ID
+        apps_by_id = {}
         for app in apps:
+            details = app.get_details()
+            app_id = details['id']
+
+            # If app_id isn't in dictionary, add it
+            if app_id not in apps_by_id:
+                apps_by_id[app_id] = {
+                    'app': app,
+                    'repos': set()
+                }
+
+            # Add repository to the set
+            repo_name = details.get('repo', 'unknown')
+            apps_by_id[app_id]['repos'].add(repo_name)
+
+        # Display each application
+        for app_id, app_data in apps_by_id.items():
+            app = app_data['app']
             details = app.get_details()
             is_installed = details['id'] in self.installed_results
             is_updatable = details['id'] in self.updates_results
@@ -500,10 +559,23 @@ class MainWindow(Gtk.Window):
             title_label.set_yalign(0.5)  # Use yalign instead of valign
             title_label.set_hexpand(True)
 
+            # Add repository labels
+            repo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            repo_box.set_spacing(4)
+            repo_box.set_halign(Gtk.Align.END)
+            repo_box.set_valign(Gtk.Align.END)
+
+            # Add repository labels
+            for repo in sorted(app_data['repos']):
+                repo_label = Gtk.Label(label=repo)
+                repo_label.get_style_context().add_class("item-repo-label")
+                repo_label.set_halign(Gtk.Align.END)
+                repo_box.pack_end(repo_label, False, False, 0)
+
             # Add summary
             desc_label = Gtk.Label(label=details['summary'])
             desc_label.set_halign(Gtk.Align.START)
-            desc_label.set_yalign(0.5)  # Use yalign instead of valign
+            desc_label.set_yalign(0.5)
             desc_label.set_hexpand(True)
             desc_label.set_line_wrap(True)
             desc_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
@@ -563,19 +635,30 @@ class MainWindow(Gtk.Window):
             details_btn.get_style_context().add_class("dark-install-button")
             buttons_box.pack_end(details_btn, False, False, 0)
 
+            # Donate button with condition
+            donate_btn = self.create_button(
+                self.on_donate_clicked,
+                app,
+                None,
+                condition=lambda x: x.get_details().get('urls', {}).get('donation', '')
+            )
+            if donate_btn:
+                donate_icon = Gio.Icon.new_for_string('donate')
+                donate_btn.set_image(Gtk.Image.new_from_gicon(donate_icon, Gtk.IconSize.BUTTON))
+                donate_btn.get_style_context().add_class("dark-install-button")
+                buttons_box.pack_end(donate_btn, False, False, 0)
+
             # Add widgets to right box
             right_box.pack_start(title_label, False, False, 0)
+            right_box.pack_start(repo_box, False, False, 0)
             right_box.pack_start(desc_label, False, False, 0)
             right_box.pack_start(buttons_box, False, True, 0)
-
-            # Add separator
-            separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
 
             # Add to container
             app_container.pack_start(icon_box, False, False, 0)
             app_container.pack_start(right_box, True, True, 0)
             self.right_container.pack_start(app_container, False, False, 0)
-            self.right_container.pack_start(separator, False, False, 0)
+            self.right_container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
         self.right_container.show_all()
 
@@ -671,10 +754,6 @@ class MainWindow(Gtk.Window):
             apps.extend([app for app in self.installed_results])
         if 'updates' in category:
             apps.extend([app for app in self.updates_results])
-
-        # Track installed package IDs for quick lookup
-        installed_package_ids = {app.get_details()['id'] for app in self.installed_results}
-        updatable_package_ids = {app.get_details()['id'] for app in self.updates_results}
 
         # Load collections data
         try:
@@ -793,7 +872,10 @@ class MainWindow(Gtk.Window):
                 repo_box.set_hexpand(True)
 
                 # Create checkbox
-                checkbox = Gtk.CheckButton(label=repo.get_name())
+                if self.system_mode:
+                    checkbox = Gtk.CheckButton(label=f"{repo.get_name()} (System)")
+                else:
+                    checkbox = Gtk.CheckButton(label=f"{repo.get_name()} (User)")
                 checkbox.set_active(not repo.get_disabled())
                 if not repo.get_disabled():
                     checkbox.get_style_context().remove_class("dim-label")
@@ -831,11 +913,30 @@ class MainWindow(Gtk.Window):
             self.right_container.show_all()
             return
 
-        # Display each application
+
+        # Create a dictionary to group apps by ID
+        apps_by_id = {}
         for app in apps:
             details = app.get_details()
-            is_installed = details['id'] in installed_package_ids
-            is_updatable = details['id'] in updatable_package_ids
+            app_id = details['id']
+
+            # If app_id isn't in dictionary, add it
+            if app_id not in apps_by_id:
+                apps_by_id[app_id] = {
+                    'app': app,
+                    'repos': set()
+                }
+
+            # Add repository to the set
+            repo_name = details.get('repo', 'unknown')
+            apps_by_id[app_id]['repos'].add(repo_name)
+
+        # Display each unique application
+        for app_id, app_data in apps_by_id.items():
+            app = app_data['app']
+            details = app.get_details()
+            is_installed = details['id'] in self.installed_results
+            is_updatable = details['id'] in self.updates_results
 
             # Create application container
             app_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -845,11 +946,11 @@ class MainWindow(Gtk.Window):
 
             # Add icon placeholder
             icon_box = Gtk.Box()
-            icon_box.set_size_request(94, -1)
+            icon_box.set_size_request(148, -1)
 
             # Create and add the icon
             icon = Gtk.Image.new_from_file(f"{details['icon_path_128']}/{details['icon_filename']}")
-            icon.set_size_request(74, 74)
+            icon.set_size_request(48, 48)
             icon_box.pack_start(icon, True, True, 0)
 
             # Create right side layout for text
@@ -861,17 +962,32 @@ class MainWindow(Gtk.Window):
             title_label = Gtk.Label(label=details['name'])
             title_label.get_style_context().add_class("app-list-header")
             title_label.set_halign(Gtk.Align.START)
-            title_label.set_valign(Gtk.Align.CENTER)
+            title_label.set_yalign(0.5)
             title_label.set_hexpand(True)
+
+            # Add repository labels
+            repo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            repo_box.set_spacing(4)
+            repo_box.set_halign(Gtk.Align.END)
+            repo_box.set_valign(Gtk.Align.END)
+
+            # Add repository labels
+            for repo in sorted(app_data['repos']):
+                repo_label = Gtk.Label(label=repo)
+                repo_label.get_style_context().add_class("item-repo-label")
+                repo_label.set_halign(Gtk.Align.END)
+                repo_box.pack_end(repo_label, False, False, 0)
 
             # Add summary
             desc_label = Gtk.Label(label=details['summary'])
             desc_label.set_halign(Gtk.Align.START)
-            desc_label.set_valign(Gtk.Align.CENTER)
+            desc_label.set_yalign(0.5)
             desc_label.set_hexpand(True)
             desc_label.set_line_wrap(True)
             desc_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
             desc_label.get_style_context().add_class("dim-label")
+            desc_label.get_style_context().add_class("app-list-summary")
+
 
             # Create buttons box
             buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -941,17 +1057,15 @@ class MainWindow(Gtk.Window):
 
             # Add widgets to right box
             right_box.pack_start(title_label, False, False, 0)
+            right_box.pack_start(repo_box, False, False, 0)
             right_box.pack_start(desc_label, False, False, 0)
             right_box.pack_start(buttons_box, False, True, 0)
-
-            # Add separator
-            separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
 
             # Add to container
             app_container.pack_start(icon_box, False, False, 0)
             app_container.pack_start(right_box, True, True, 0)
             self.right_container.pack_start(app_container, False, False, 0)
-            self.right_container.pack_start(separator, False, False, 0)
+            self.right_container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
         self.right_container.show_all()  # Show all widgets after adding them
 
