@@ -919,9 +919,10 @@ def handle_repo_toggle(args):
 
     get_status = args.toggle_repo.lower() in ['true', 'enable']
     try:
-        repotoggle(repo_name, get_status, args.system)
-    except GLib.Error as e:
-        print(f"Error: {e}")
+        success, message = repotoggle(repo_name, get_status, args.system)
+        print(f"{message}")
+    except GLib.Error:
+        print(f"{message}")
 
 def handle_list_repos(args):
     repos = repolist(args.system)
@@ -931,9 +932,10 @@ def handle_list_repos(args):
 
 def handle_add_repo(args):
     try:
-        repoadd(args.add_repo, args.system)
-    except GLib.Error as e:
-        print(f"Error: {e}")
+        success, message = repoadd(args.add_repo, args.system)
+        print(f"{message}")
+    except GLib.Error:
+        print(f"{message}")
 
 def handle_remove_repo(args):
     repodelete(args.remove_repo, args.system)
@@ -943,17 +945,19 @@ def handle_install(args, searcher):
     packagelist = searcher.search_flatpak(args.install, args.repo)
     for package in packagelist:
         try:
-            install_flatpak(package, args.repo, args.system)
-        except GLib.Error as e:
-            print(f"Error: {e}")
+            success, message = install_flatpak(package, args.repo, args.system)
+            print(f"{message}")
+        except GLib.Error:
+            print(f"{message}")
 
 def handle_remove(args, searcher):
     packagelist = searcher.search_flatpak(args.remove, args.repo)
     for package in packagelist:
         try:
-            remove_flatpak(package, args.repo, args.system)
-        except GLib.Error as e:
-            print(f"Error: {e}")
+            success, message = remove_flatpak(package, args.repo, args.system)
+            print(f"{message}")
+        except GLib.Error:
+            print(f"{message}")
 
 def handle_list_installed(args, searcher):
     installed_apps = searcher.get_installed_apps(args.system)
