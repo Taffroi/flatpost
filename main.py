@@ -504,176 +504,7 @@ class MainWindow(Gtk.Window):
 
     def show_search_results(self, apps):
         """Display search results in the right panel"""
-        # Clear existing content
-        for child in self.right_container.get_children():
-            child.destroy()
-
-        # Create a dictionary to group apps by ID
-        apps_by_id = {}
-        for app in apps:
-            details = app.get_details()
-            app_id = details['id']
-
-            # If app_id isn't in dictionary, add it
-            if app_id not in apps_by_id:
-                apps_by_id[app_id] = {
-                    'app': app,
-                    'repos': set()
-                }
-
-            # Add repository to the set
-            repo_name = details.get('repo', 'unknown')
-            apps_by_id[app_id]['repos'].add(repo_name)
-
-        # Display each application
-        for app_id, app_data in apps_by_id.items():
-            app = app_data['app']
-            details = app.get_details()
-            is_installed = False
-            for package in self.installed_results:
-                if details['id'] == package.id:
-                    is_installed = True
-                    break
-            is_updatable = False
-            for package in self.updates_results:
-                if details['id'] == package.id:
-                    is_updatable = True
-                    break
-
-            # Create application container
-            app_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-            app_container.set_spacing(12)
-            app_container.set_margin_top(6)
-            app_container.set_margin_bottom(6)
-
-            # Add icon placeholder
-            icon_box = Gtk.Box()
-            icon_box.set_size_request(148, -1)
-
-            # Create and add the icon
-            icon = Gtk.Image.new_from_file(f"{details['icon_path_128']}/{details['icon_filename']}")
-            icon.set_size_request(48, 48)
-            icon_box.pack_start(icon, True, True, 0)
-
-            # Create right side layout for text
-            right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            right_box.set_spacing(4)
-            right_box.set_hexpand(True)
-
-            # Add title
-            title_label = Gtk.Label(label=details['name'])
-            title_label.get_style_context().add_class("app-list-header")
-            title_label.set_halign(Gtk.Align.START)
-            title_label.set_yalign(0.5)  # Use yalign instead of valign
-            title_label.set_hexpand(True)
-
-            # Add repository labels
-            repo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-            repo_box.set_spacing(4)
-            repo_box.set_halign(Gtk.Align.END)
-            repo_box.set_valign(Gtk.Align.END)
-
-            # Add repository labels
-            for repo in sorted(app_data['repos']):
-                repo_label = Gtk.Label(label=repo)
-                repo_label.get_style_context().add_class("item-repo-label")
-                repo_label.set_halign(Gtk.Align.END)
-                repo_box.pack_end(repo_label, False, False, 0)
-
-            # Add summary
-            desc_label = Gtk.Label(label=details['summary'])
-            desc_label.set_halign(Gtk.Align.START)
-            desc_label.set_yalign(0.5)
-            desc_label.set_hexpand(True)
-            desc_label.set_line_wrap(True)
-            desc_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
-            desc_label.get_style_context().add_class("dim-label")
-            desc_label.get_style_context().add_class("app-list-summary")
-
-            # Create buttons box
-            buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-            buttons_box.set_spacing(6)
-            buttons_box.set_margin_top(4)
-            buttons_box.set_halign(Gtk.Align.END)
-
-            # Install/Remove button
-            if is_installed:
-                button = self.create_button(
-                    self.on_remove_clicked,
-                    app,
-                    None,
-                    condition=lambda x: True
-                )
-                add_rm_icon = "list-remove"
-                add_rm_style = "dark-remove-buton"
-            else:
-                button = self.create_button(
-                    self.on_install_clicked,
-                    app,
-                    None,
-                    condition=lambda x: True
-                )
-                add_rm_icon = "list-add"
-                add_rm_style = "dark-install-buton"
-
-            if button:
-                use_icon = Gio.Icon.new_for_string(add_rm_icon)
-                button.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                button.get_style_context().add_class(add_rm_style)
-            buttons_box.pack_end(button, False, False, 0)
-
-            # Add Update button if available
-            if is_updatable:
-                update_button = self.create_button(
-                    self.on_update_clicked,
-                    app,
-                    None,
-                    condition=lambda x: True
-                )
-                if update_button:
-                    update_icon = Gio.Icon.new_for_string('synchronize')
-                    update_button.set_image(Gtk.Image.new_from_gicon(update_icon, Gtk.IconSize.BUTTON))
-                    update_button.get_style_context().add_class("dark-install-button")
-                    buttons_box.pack_end(update_button, False, False, 0)
-
-            # Details button
-            details_btn = self.create_button(
-                self.on_details_clicked,
-                app,
-                None
-            )
-            if details_btn:
-                details_icon = Gio.Icon.new_for_string('question')
-                details_btn.set_image(Gtk.Image.new_from_gicon(details_icon, Gtk.IconSize.BUTTON))
-                details_btn.get_style_context().add_class("dark-install-button")
-                buttons_box.pack_end(details_btn, False, False, 0)
-
-            # Donate button with condition
-            donate_btn = self.create_button(
-                self.on_donate_clicked,
-                app,
-                None,
-                condition=lambda x: x.get_details().get('urls', {}).get('donation', '')
-            )
-            if donate_btn:
-                donate_icon = Gio.Icon.new_for_string('donate')
-                donate_btn.set_image(Gtk.Image.new_from_gicon(donate_icon, Gtk.IconSize.BUTTON))
-                donate_btn.get_style_context().add_class("dark-install-button")
-                buttons_box.pack_end(donate_btn, False, False, 0)
-
-            # Add widgets to right box
-            right_box.pack_start(title_label, False, False, 0)
-            right_box.pack_start(repo_box, False, False, 0)
-            right_box.pack_start(desc_label, False, False, 0)
-            right_box.pack_start(buttons_box, False, True, 0)
-
-            # Add to container
-            app_container.pack_start(icon_box, False, False, 0)
-            app_container.pack_start(right_box, True, True, 0)
-            self.right_container.pack_start(app_container, False, False, 0)
-            self.right_container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
-
-        self.right_container.show_all()
+        self.display_apps(apps)
 
     def on_category_clicked(self, category, group):
         # Remove active state from all widgets in all groups
@@ -755,10 +586,6 @@ class MainWindow(Gtk.Window):
             child.destroy()
 
     def show_category_apps(self, category):
-        # Clear existing content properly
-        for child in self.right_container.get_children():
-            child.destroy()
-
         # Initialize apps list
         apps = []
 
@@ -925,8 +752,11 @@ class MainWindow(Gtk.Window):
 
             self.right_container.show_all()
             return
+        self.display_apps(apps)
 
-
+    def display_apps(self, apps):
+        for child in self.right_container.get_children():
+            child.destroy()
         # Create a dictionary to group apps by ID
         apps_by_id = {}
         for app in apps:
@@ -983,7 +813,7 @@ class MainWindow(Gtk.Window):
             title_label = Gtk.Label(label=details['name'])
             title_label.get_style_context().add_class("app-list-header")
             title_label.set_halign(Gtk.Align.START)
-            title_label.set_yalign(0.5)
+            title_label.set_yalign(0.5)  # Use yalign instead of valign
             title_label.set_hexpand(True)
 
             # Add repository labels
@@ -1009,7 +839,6 @@ class MainWindow(Gtk.Window):
             desc_label.get_style_context().add_class("dim-label")
             desc_label.get_style_context().add_class("app-list-summary")
 
-
             # Create buttons box
             buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
             buttons_box.set_spacing(6)
@@ -1024,10 +853,8 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                if button:
-                    remove_icon = Gio.Icon.new_for_string('list-remove')
-                    button.set_image(Gtk.Image.new_from_gicon(remove_icon, Gtk.IconSize.BUTTON))
-                    button.get_style_context().add_class("dark-remove-button")
+                add_rm_icon = "list-remove"
+                add_rm_style = "dark-remove-buton"
             else:
                 button = self.create_button(
                     self.on_install_clicked,
@@ -1035,10 +862,13 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                if button:
-                    install_icon = Gio.Icon.new_for_string('list-add')
-                    button.set_image(Gtk.Image.new_from_gicon(install_icon, Gtk.IconSize.BUTTON))
-                    button.get_style_context().add_class("dark-install-button")
+                add_rm_icon = "list-add"
+                add_rm_style = "dark-install-buton"
+
+            if button:
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                button.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                button.get_style_context().add_class(add_rm_style)
             buttons_box.pack_end(button, False, False, 0)
 
             # Add Update button if available
