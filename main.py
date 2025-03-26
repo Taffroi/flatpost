@@ -529,8 +529,16 @@ class MainWindow(Gtk.Window):
         for app_id, app_data in apps_by_id.items():
             app = app_data['app']
             details = app.get_details()
-            is_installed = details['id'] in self.installed_results
-            is_updatable = details['id'] in self.updates_results
+            is_installed = False
+            for package in self.installed_results:
+                if details['id'] == package.id:
+                    is_installed = True
+                    break
+            is_updatable = False
+            for package in self.updates_results:
+                if details['id'] == package.id:
+                    is_updatable = True
+                    break
 
             # Create application container
             app_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -543,7 +551,7 @@ class MainWindow(Gtk.Window):
             icon_box.set_size_request(148, -1)
 
             # Create and add the icon
-            icon = Gtk.Image.new_from_file(f"{details['icon_path_64']}/{details['icon_filename']}")
+            icon = Gtk.Image.new_from_file(f"{details['icon_path_128']}/{details['icon_filename']}")
             icon.set_size_request(48, 48)
             icon_box.pack_start(icon, True, True, 0)
 
@@ -596,10 +604,8 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                if button:
-                    remove_icon = Gio.Icon.new_for_string('list-remove')
-                    button.set_image(Gtk.Image.new_from_gicon(remove_icon, Gtk.IconSize.BUTTON))
-                    button.get_style_context().add_class("dark-remove-button")
+                add_rm_icon = "list-remove"
+                add_rm_style = "dark-remove-buton"
             else:
                 button = self.create_button(
                     self.on_install_clicked,
@@ -607,10 +613,13 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                if button:
-                    install_icon = Gio.Icon.new_for_string('list-add')
-                    button.set_image(Gtk.Image.new_from_gicon(install_icon, Gtk.IconSize.BUTTON))
-                    button.get_style_context().add_class("dark-install-button")
+                add_rm_icon = "list-add"
+                add_rm_style = "dark-install-buton"
+
+            if button:
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                button.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                button.get_style_context().add_class(add_rm_style)
             buttons_box.pack_end(button, False, False, 0)
 
             # Add Update button if available
@@ -939,8 +948,16 @@ class MainWindow(Gtk.Window):
         for app_id, app_data in apps_by_id.items():
             app = app_data['app']
             details = app.get_details()
-            is_installed = details['id'] in self.installed_results
-            is_updatable = details['id'] in self.updates_results
+            is_installed = False
+            for package in self.installed_results:
+                if details['id'] == package.id:
+                    is_installed = True
+                    break
+            is_updatable = False
+            for package in self.updates_results:
+                if details['id'] == package.id:
+                    is_updatable = True
+                    break
 
             # Create application container
             app_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -953,7 +970,7 @@ class MainWindow(Gtk.Window):
             icon_box.set_size_request(148, -1)
 
             # Create and add the icon
-            icon = Gtk.Image.new_from_file(f"{details['icon_path_64']}/{details['icon_filename']}")
+            icon = Gtk.Image.new_from_file(f"{details['icon_path_128']}/{details['icon_filename']}")
             icon.set_size_request(48, 48)
             icon_box.pack_start(icon, True, True, 0)
 
@@ -1153,9 +1170,9 @@ class MainWindow(Gtk.Window):
             # Perform installation
             # Get selected values
             if self.system_mode is False:
-                print(f"Installing {details['name']} for User from {selected_repo}")
+                print(f"Installing {details['name']} for User")
             else:
-                print(f"Installing {details['name']} for System from {selected_repo}")
+                print(f"Installing {details['name']} for System")
             success, message = libflatpak_query.install_flatpak(app, selected_repo, self.system_mode)
             message_type=Gtk.MessageType.INFO
             if not success:
@@ -1170,10 +1187,9 @@ class MainWindow(Gtk.Window):
                     text=message
                 )
                 self.refresh_local()
+                self.refresh_current_page()
                 finished_dialog.run()
                 finished_dialog.destroy()
-
-            self.refresh_current_page()
         dialog.destroy()
 
     def on_remove_clicked(self, button, app):
@@ -1224,9 +1240,9 @@ class MainWindow(Gtk.Window):
                     text=message
                 )
                 self.refresh_local()
+                self.refresh_current_page()
                 finished_dialog.run()
                 finished_dialog.destroy()
-            self.refresh_current_page()
         dialog.destroy()
 
     def on_update_clicked(self, button, app):

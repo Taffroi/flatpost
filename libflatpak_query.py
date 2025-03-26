@@ -50,6 +50,8 @@ import os
 import sys
 import json
 import time
+from enum import Enum
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -105,6 +107,11 @@ class AppStreamPackage:
                 version = release.get_version()
                 return version
         return None
+
+    @property
+    def kind(self) -> str:
+        return str(self.component.get_kind())
+
 
     def _get_icon_url(self) -> str:
         """Get the remote icon URL from the component"""
@@ -172,6 +179,7 @@ class AppStreamPackage:
         return {
             "name": self.name,
             "id": self.id,
+            "kind": self.kind,
             "summary": self.summary,
             "description": self.description,
             "version": self.version,
@@ -259,16 +267,26 @@ class AppstreamSearcher:
     def search_flatpak_repo(self, keyword: str, repo_name: str) -> list[AppStreamPackage]:
         search_results = []
         packages = self.remotes[repo_name]
+        found = None
         for package in packages:
             # Try matching exact ID first
             if keyword is package.id:
-                search_results.append(package)
+                found = package
+                break
+            # Next try matching exact name
+            elif keyword.lower() is package.name.lower():
+                found = package
+                break
             # Try matching case insensitive ID next
             elif keyword.lower() is package.id.lower():
-                search_results.append(package)
+                found = package
+                break
             # General keyword search
             elif keyword.lower() in str(package).lower():
-                search_results.append(package)
+                found = package
+                break
+        if found:
+            search_results.append(found)
         return search_results
 
 
@@ -999,6 +1017,7 @@ def handle_search(args, searcher):
             details = package.get_details()
             print(f"Name: {details['name']}")
             print(f"ID: {details['id']}")
+            print(f"Kind: {details['kind']}")
             print(f"Summary: {details['summary']}")
             print(f"Description: {details['description']}")
             print(f"Version: {details['version']}")
