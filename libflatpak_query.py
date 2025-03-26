@@ -612,18 +612,10 @@ def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tupl
     installation = get_installation(system)
     searcher = get_reposearcher(system)
 
-    remote = installation.get_remote_by_name(repo_name)
-    if not remote:
-        return False, f"Repository '{repo_name}' not found."
-
-    package_details = searcher.search_flatpak(app.id, repo_name)
-    if not package_details:
-        return False, f"Application '{app.id}' not found in repository '{repo_name}'"
-
     transaction = Flatpak.Transaction.new_for_installation(installation)
+
     # Add the install operation
     transaction.add_install(repo_name, app.flatpak_bundle, None)
-
     # Run the transaction
     try:
         transaction.run()
@@ -649,15 +641,9 @@ def remove_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple
     installation = get_installation(system)
     searcher = get_reposearcher(system)
 
-    remote = installation.get_remote_by_name(repo_name)
-    if not remote:
-        return False, f"Repository '{repo_name}' not found."
-
     installed_apps = searcher.get_installed_apps()
     for ins_app_id_bundle, ins_repo_name, ins_repo_type in installed_apps:
-        parts = ins_app_id_bundle.split('/')
-        ins_app_id = parts[parts.index('app') + 1]
-        if ins_app_id == app.id:
+        if ins_app_id_bundle == app.flatpak_bundle:
             # Create a new transaction for removal
             transaction = Flatpak.Transaction.new_for_installation(installation)
             transaction.add_uninstall(ins_app_id_bundle)
@@ -772,6 +758,7 @@ def repoadd(repofile, system=False):
         try:
             local_path = download_repo(repofile)
             repofile = local_path
+            print(f"\nRepository added successfully: {args.add_repo}")
         except:
             return False, f"Repository file '{repofile}' could not be downloaded."
 
@@ -931,9 +918,10 @@ def handle_repo_toggle(args):
         sys.exit(1)
 
     get_status = args.toggle_repo.lower() in ['true', 'enable']
-    success, message = repotoggle(repo_name, get_status, args.system)
-    print(message)
-    sys.exit(0 if success else 1)
+    try:
+        repotoggle(repo_name, get_status, args.system)
+    except GLib.Error as e:
+        print(f"Error: {e}")
 
 def handle_list_repos(args):
     repos = repolist(args.system)
@@ -942,11 +930,10 @@ def handle_list_repos(args):
         print(f"- {repo.get_name()} ({repo.get_url()})")
 
 def handle_add_repo(args):
-    success, error_message = repoadd(args.add_repo, args.system)
-    if error_message:
-        print(error_message)
-        sys.exit(1)
-    print(f"\nRepository added successfully: {args.add_repo}")
+    try:
+        repoadd(args.add_repo, args.system)
+    except GLib.Error as e:
+        print(f"Error: {e}")
 
 def handle_remove_repo(args):
     repodelete(args.remove_repo, args.system)
@@ -955,18 +942,18 @@ def handle_remove_repo(args):
 def handle_install(args, searcher):
     packagelist = searcher.search_flatpak(args.install, args.repo)
     for package in packagelist:
-        if package.id == args.install:
-            success, message = install_flatpak(package, args.repo, args.system)
-            print(message)
-            sys.exit(0 if success else 1)
+        try:
+            install_flatpak(package, args.repo, args.system)
+        except GLib.Error as e:
+            print(f"Error: {e}")
 
 def handle_remove(args, searcher):
     packagelist = searcher.search_flatpak(args.remove, args.repo)
     for package in packagelist:
-        if package.id == args.remove:
-            success, message = remove_flatpak(package, args.repo, args.system)
-            print(message)
-            sys.exit(0 if success else 1)
+        try:
+            remove_flatpak(package, args.repo, args.system)
+        except GLib.Error as e:
+            print(f"Error: {e}")
 
 def handle_list_installed(args, searcher):
     installed_apps = searcher.get_installed_apps(args.system)
