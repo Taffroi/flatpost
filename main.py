@@ -255,63 +255,24 @@ class MainWindow(Gtk.Window):
             dialog.destroy()
 
     def refresh_local(self):
-        # Create dialog and progress bar
-        dialog = Gtk.Dialog(
-            title="Refreshing local data, please wait...",
-            parent=self,
-            modal=True,
-            destroy_with_parent=True
-        )
-        dialog.set_size_request(400, 100)
-
-        progress_bar = Gtk.ProgressBar()
-        progress_bar.set_text("Initializing...")
-        progress_bar.set_show_text(True)
-        dialog.vbox.pack_start(progress_bar, True, True, 0)
-        dialog.vbox.set_spacing(12)
-
-        # Show the dialog
-        dialog.show_all()
-
-        searcher = libflatpak_query.get_reposearcher(self.system_mode)
-
-        # Define thread target function
-        def refresh_target():
-            try:
-                installed_results, updates_results = searcher.refresh_local(self.system_mode)
-                self.installed_results = installed_results
-                self.updates_results = updates_results
-            except Exception as e:
-                message_type = Gtk.MessageType.ERROR
-                dialog = Gtk.MessageDialog(
-                    transient_for=None,  # Changed from self
-                    modal=True,
-                    destroy_with_parent=True,
-                    message_type=message_type,
-                    buttons=Gtk.ButtonsType.OK,
-                    text=f"Error updating progress: {str(e)}"
-                )
-                dialog.run()
-                dialog.destroy()
-
-        # Start the refresh thread
-        refresh_thread = threading.Thread(target=refresh_target)
-        refresh_thread.start()
-        def update_progress():
-            while refresh_thread.is_alive():
-                progress_bar.set_text("Refreshing...")
-                progress = searcher.refresh_progress
-                progress_bar.set_fraction(progress / 100)
-                return True
-            else:
-                progress_bar.set_fraction(100 / 100)
-                dialog.destroy()
-
-        # Start the progress update timer
-        GLib.timeout_add_seconds(0.5, update_progress)
-        dialog.run()
-        if not refresh_thread.is_alive() and dialog.is_active():
+        try:
+            searcher = libflatpak_query.get_reposearcher(self.system_mode)
+            installed_results, updates_results = searcher.refresh_local(self.system_mode)
+            self.installed_results = installed_results
+            self.updates_results = updates_results
+        except Exception as e:
+            message_type = Gtk.MessageType.ERROR
+            dialog = Gtk.MessageDialog(
+                transient_for=None,  # Changed from self
+                modal=True,
+                destroy_with_parent=True,
+                message_type=message_type,
+                buttons=Gtk.ButtonsType.OK,
+                text=f"Error refreshing local data: {str(e)}"
+            )
+            dialog.run()
             dialog.destroy()
+
 
     def create_panels(self):
         # Check if panels already exist
@@ -924,6 +885,31 @@ class MainWindow(Gtk.Window):
 
         self.right_container.show_all()  # Show all widgets after adding them
 
+    def show_waiting_dialog(self, message="Please wait while task is running..."):
+        """Show a modal dialog with a spinner"""
+        self.waiting_dialog = Gtk.Dialog(
+            title="Running Task...",
+            transient_for=self,
+            modal=True,
+            destroy_with_parent=True,
+        )
+
+        # Create spinner
+        self.spinner = Gtk.Spinner()
+        self.spinner.start()
+
+        # Add content
+        box = self.waiting_dialog.get_content_area()
+        box.set_spacing(12)
+        box.set_border_width(12)
+
+        # Add label and spinner
+        box.pack_start(Gtk.Label(label=message), False, False, 0)
+        box.pack_start(self.spinner, False, False, 0)
+
+        # Show dialog
+        self.waiting_dialog.show_all()
+
     def on_install_clicked(self, button, app):
         """Handle the Install button click with installation options"""
         details = app.get_details()
@@ -946,7 +932,6 @@ class MainWindow(Gtk.Window):
 
         # Create repository dropdown
         repo_combo = Gtk.ComboBoxText()
-        repo_combo.set_hexpand(True)
 
         content_area.pack_start(Gtk.Label(label=f"Install: {details['id']}?"), False, False, 0)
 
@@ -998,29 +983,42 @@ class MainWindow(Gtk.Window):
             selected_repo = repo_combo.get_active_text()
 
             # Perform installation
-            # Get selected values
-            if self.system_mode is False:
-                print(f"Installing {details['name']} for User")
-            else:
-                print(f"Installing {details['name']} for System")
-            success, message = libflatpak_query.install_flatpak(app, selected_repo, self.system_mode)
-            message_type=Gtk.MessageType.INFO
-            if not success:
-                message_type=Gtk.MessageType.ERROR
-            if message:
-                finished_dialog = Gtk.MessageDialog(
-                    transient_for=self,
-                    modal=True,
-                    destroy_with_parent=True,
-                    message_type=message_type,
-                    buttons=Gtk.ButtonsType.OK,
-                    text=message
-                )
-                self.refresh_local()
-                self.refresh_current_page()
-                finished_dialog.run()
-                finished_dialog.destroy()
+            def perform_installation():
+                # Show waiting dialog
+                GLib.idle_add(self.show_waiting_dialog)
+
+                success, message = libflatpak_query.install_flatpak(app, selected_repo, self.system_mode)
+
+                # Update UI on main thread
+                GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
+
+            # Start spinner and begin installation
+            thread = threading.Thread(target=perform_installation)
+            thread.daemon = True  # Allow program to exit even if thread is still running
+            thread.start()
+
         dialog.destroy()
+
+    def on_task_complete(self, dialog, success, message):
+        """Handle tasl completion"""
+        # Update UI
+        message_type=Gtk.MessageType.INFO
+        if not success:
+            message_type=Gtk.MessageType.ERROR
+        if message:
+            finished_dialog = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                destroy_with_parent=True,
+                message_type=message_type,
+                buttons=Gtk.ButtonsType.OK,
+                text=message
+            )
+            self.refresh_local()
+            self.refresh_current_page()
+            finished_dialog.run()
+            finished_dialog.destroy()
+        self.waiting_dialog.destroy()
 
     def on_remove_clicked(self, button, app):
         """Handle the Remove button click with removal options"""
@@ -1051,28 +1049,20 @@ class MainWindow(Gtk.Window):
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             # Perform Removal
-            # Get selected values
-            if self.system_mode is False:
-                print(f"Removing {details['name']} for User.")
-            else:
-                print(f"Removing {details['name']} for System.")
-            success, message = libflatpak_query.remove_flatpak(app, self.system_mode)
-            message_type=Gtk.MessageType.INFO
-            if not success:
-                message_type=Gtk.MessageType.ERROR
-            if message:
-                finished_dialog = Gtk.MessageDialog(
-                    transient_for=self,
-                    modal=True,
-                    destroy_with_parent=True,
-                    message_type=message_type,
-                    buttons=Gtk.ButtonsType.OK,
-                    text=message
-                )
-                self.refresh_local()
-                self.refresh_current_page()
-                finished_dialog.run()
-                finished_dialog.destroy()
+            def perform_removal():
+                # Show waiting dialog
+                GLib.idle_add(self.show_waiting_dialog, "Removing package...")
+
+                success, message = libflatpak_query.remove_flatpak(app, self.system_mode)
+
+                # Update UI on main thread
+                GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
+
+            # Start spinner and begin installation
+            thread = threading.Thread(target=perform_removal)
+            thread.daemon = True  # Allow program to exit even if thread is still running
+            thread.start()
+
         dialog.destroy()
 
     def on_update_clicked(self, button, app):

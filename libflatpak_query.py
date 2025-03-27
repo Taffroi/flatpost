@@ -43,14 +43,12 @@ import logging
 from enum import IntEnum
 import argparse
 import requests
-import urllib
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 import tempfile
 import os
 import sys
 import json
 import time
-from enum import Enum
 
 
 # Set up logging
@@ -628,7 +626,6 @@ def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tupl
         repo_name = "flathub"
 
     installation = get_installation(system)
-    searcher = get_reposearcher(system)
 
     transaction = Flatpak.Transaction.new_for_installation(installation)
 
@@ -776,7 +773,7 @@ def repoadd(repofile, system=False):
         try:
             local_path = download_repo(repofile)
             repofile = local_path
-            print(f"\nRepository added successfully: {args.add_repo}")
+            print(f"\nRepository added successfully: {repofile}")
         except:
             return False, f"Repository file '{repofile}' could not be downloaded."
 
@@ -822,7 +819,7 @@ def repoadd(repofile, system=False):
 def repofile_is_url(string):
     """Check if a string is a valid URL"""
     try:
-        result = urllib.parse.urlparse(string)
+        result = urlparse(string)
         return all([result.scheme, result.netloc])
     except:
         return False
@@ -831,9 +828,9 @@ def download_repo(url):
     """Download a repository file from URL to /tmp/"""
     try:
         # Create a deterministic filename based on the URL
-        url_path = urllib.parse.urlparse(url).path
+        url_path = urlparse(url).path
         filename = os.path.basename(url_path) or 'repo'
-        tmp_path = Path(tempfile.gettempdir()) / f"{filename}.flatpakrepo"
+        tmp_path = Path(tempfile.gettempdir()) / f"{filename}"
 
         # Download the file
         with requests.get(url, stream=True) as response:
