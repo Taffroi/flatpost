@@ -8,6 +8,7 @@ from gi.repository import Gtk, Gio, Gdk, GLib
 import libflatpak_query
 import json
 import threading
+import subprocess
 
 class MainWindow(Gtk.Window):
     def __init__(self):
@@ -159,9 +160,12 @@ class MainWindow(Gtk.Window):
         )
 
         # Create main layout
-        self.main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
         self.add(self.main_box)
+
+        # Create_header_bar
+        self.create_header_bar()
 
         # Create panels
         self.create_panels()
@@ -170,6 +174,85 @@ class MainWindow(Gtk.Window):
 
         # Select Trending by default
         self.select_default_category()
+
+    def create_header_bar(self):
+        # Create horizontal bar
+        self.top_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.top_bar.set_hexpand(True)
+        self.top_bar.set_spacing(6)
+        self.top_bar.set_border_width(6)
+
+        # Add search bar
+        self.searchbar = Gtk.SearchBar()  # Use self.searchbar instead of searchbar
+        self.searchbar.set_hexpand(True)
+        self.searchbar.set_margin_bottom(6)
+
+        # Create search entry with icon
+        searchentry = Gtk.SearchEntry()
+        searchentry.set_placeholder_text("Search applications...")
+        searchentry.set_icon_from_gicon(Gtk.EntryIconPosition.PRIMARY,
+                                    Gio.Icon.new_for_string('search'))
+
+        # Connect search entry signals
+        searchentry.connect("search-changed", self.on_search_changed)
+        searchentry.connect("activate", self.on_search_activate)
+
+        # Connect search entry to search bar
+        self.searchbar.connect_entry(searchentry)
+        self.searchbar.add(searchentry)
+
+        self.searchbar.set_search_mode(True)
+
+        self.top_bar.pack_start(self.searchbar, False, False, 0)
+
+        # Create system mode switch box
+        system_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+        # Create system mode switch
+        self.system_switch = Gtk.Switch()
+        self.system_switch.connect("notify::active", self.on_system_mode_toggled)
+        self.system_switch.set_vexpand(False)
+
+        # Create system mode label
+        system_label = Gtk.Label(label="System")
+
+        # Pack switch and label
+        system_box.pack_end(system_label, False, False, 0)
+        system_box.pack_end(self.system_switch, False, False, 0)
+
+        # Add system controls to header
+        self.top_bar.pack_end(system_box, False, False, 0)
+
+        # Add the top bar to the main box
+        self.main_box.pack_start(self.top_bar, False, True, 0)
+
+    def on_system_mode_toggled(self, switch, gparam):
+        """Handle system mode toggle switch state changes"""
+        desired_state = switch.get_active()
+
+        if desired_state:
+            # Request superuser validation
+            try:
+                subprocess.run(['pkexec', 'true'], check=True)
+                self.system_mode = True
+                self.refresh_data()
+                self.refresh_current_page()
+            except subprocess.CalledProcessError:
+                switch.set_active(False)
+                dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="Authentication failed",
+                    secondary_text="Could not enable system mode"
+                )
+                dialog.connect("response", lambda d, r: d.destroy())
+                dialog.show()
+        else:
+            if self.system_mode == True:
+                self.system_mode = False
+                self.refresh_data()
+                self.refresh_current_page()
 
     def populate_repo_dropdown(self):
         # Get list of repositories
@@ -282,15 +365,22 @@ class MainWindow(Gtk.Window):
         if hasattr(self, 'right_panel') and self.right_panel.get_parent():
             self.main_box.remove(self.right_panel)
 
-        # Create right panel
-        self.right_panel = self.create_applications_panel("Applications")
-
         # Create left panel with grouped categories
         self.left_panel = self.create_grouped_category_panel("Categories", self.category_groups)
 
+        # Create right panel
+        self.right_panel = self.create_applications_panel("Applications")
+
+        # Create panels container
+        self.panels_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.panels_box.set_hexpand(True)
+
         # Pack the panels with proper expansion
-        self.main_box.pack_end(self.right_panel, True, True, 0)    # Right panel expands both ways
-        self.main_box.pack_start(self.left_panel, False, False, 0)  # Left panel doesn't expand
+        self.panels_box.pack_start(self.left_panel, False, False, 0)  # Left panel doesn't expand
+        self.panels_box.pack_end(self.right_panel, True, True, 0)    # Right panel expands both ways
+
+        # Add panels container to main box
+        self.main_box.pack_start(self.panels_box, True, True, 0)
 
     def create_grouped_category_panel(self, title, groups):
 
@@ -303,25 +393,6 @@ class MainWindow(Gtk.Window):
         panel_container.set_vexpand(True)
         panel_container.set_halign(Gtk.Align.FILL)  # Fill horizontally
         panel_container.set_valign(Gtk.Align.FILL)  # Align to top
-
-        # Add search bar
-        self.searchbar = Gtk.SearchBar()  # Use self.searchbar instead of searchbar
-        self.searchbar.set_hexpand(True)
-        self.searchbar.set_margin_bottom(6)
-
-        # Create search entry with icon
-        searchentry = Gtk.SearchEntry()
-        searchentry.set_placeholder_text("Search applications...")
-        searchentry.set_icon_from_gicon(Gtk.EntryIconPosition.PRIMARY,
-                                    Gio.Icon.new_for_string('search'))
-
-        # Connect search entry signals
-        searchentry.connect("search-changed", self.on_search_changed)
-        searchentry.connect("activate", self.on_search_activate)
-
-        # Connect search entry to search bar
-        self.searchbar.connect_entry(searchentry)
-        self.searchbar.add(searchentry)
 
         # Create scrollable area
         scrolled_window = Gtk.ScrolledWindow()
@@ -393,13 +464,9 @@ class MainWindow(Gtk.Window):
         scrolled_window.add(container)
 
         # Pack the scrolled window directly into main box
-        panel_container.pack_start(self.searchbar, False, False, 0)
         panel_container.pack_start(scrolled_window, True, True, 0)
 
-
-        self.searchbar.set_search_mode(True)
         return panel_container
-        #self.searchbar.show_all()
 
     def on_search_changed(self, searchentry):
         """Handle search text changes"""

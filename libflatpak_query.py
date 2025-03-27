@@ -246,8 +246,8 @@ class AppstreamSearcher:
         packages = []
         metadata = AppStream.Metadata.new()
         metadata.set_format_style(AppStream.FormatStyle.CATALOG)
-        if self.refresh:
-            inst.update_appstream_full_sync(remote.get_name(), None, None, True)
+        #if self.refresh:
+        #    inst.update_appstream_full_sync(remote.get_name(), None, None, True)
         appstream_file = Path(remote.get_appstream_dir().get_path() + "/appstream.xml.gz")
         if appstream_file.exists():
             metadata.parse_file(Gio.File.new_for_path(appstream_file.as_posix()), AppStream.FormatKind.XML)
@@ -333,9 +333,8 @@ class AppstreamSearcher:
         installation = get_installation(system)
 
         def process_installed_refs(inst: Flatpak.Installation, system=False):
-            for ref in inst.list_installed_refs_by_kind(Flatpak.RefKind.APP):
-                app_id = ref.format_ref()
-                # Get remote name from the installation
+            for ref in inst.list_installed_refs():
+                app_id = ref.get_name()
                 remote_name = ref.get_origin()
                 if system is False:
                     installed_refs.append((app_id, remote_name, "user"))
@@ -461,8 +460,6 @@ class AppstreamSearcher:
                 if "installed" in category:
                     installed_apps = searcher.get_installed_apps()
                     for app_id, repo_name, repo_type in installed_apps:
-                        parts = app_id.split('/')
-                        app_id = parts[parts.index('app') + 1]
                         if repo_name:
                             search_result = searcher.search_flatpak(app_id, repo_name)
                             self.installed_results.extend(search_result)
@@ -485,10 +482,13 @@ class AppstreamSearcher:
         if not check_internet():
             return self._handle_offline_mode()
 
+        if system:
+            refresh = False
+
         searcher = get_reposearcher(system, refresh)
         self.all_apps = searcher.get_all_apps()
 
-        return self._process_categories(searcher)
+        return self._process_categories(searcher, system)
 
     def _initialize_metadata(self):
         """Initialize empty lists for metadata storage."""
@@ -520,7 +520,7 @@ class AppstreamSearcher:
                     self.collection_results.extend(search_result)
         return self._get_current_results()
 
-    def _process_categories(self, searcher):
+    def _process_categories(self, searcher, system=False):
         """Process categories and retrieve metadata."""
         total_categories = sum(len(categories) for categories in self.category_groups.values())
         current_category = 0
@@ -530,7 +530,7 @@ class AppstreamSearcher:
                 if category not in self.category_groups['system']:
                     self._process_category(searcher, category, current_category, total_categories)
                 else:
-                    self._process_system_category(searcher, category)
+                    self._process_system_category(searcher, category, system)
                 current_category += 1
 
         return self._get_current_results()
@@ -585,18 +585,16 @@ class AppstreamSearcher:
         except requests.RequestException as e:
             logger.error(f"Error refreshing category {category}: {str(e)}")
 
-    def _process_system_category(self, searcher, category):
+    def _process_system_category(self, searcher, category, system=False):
         """Process system-related categories."""
         if "installed" in category:
-            installed_apps = searcher.get_installed_apps()
+            installed_apps = searcher.get_installed_apps(system)
             for app_id, repo_name, repo_type in installed_apps:
-                parts = app_id.split('/')
-                app_id = parts[parts.index('app') + 1]
                 if repo_name:
                     search_result = searcher.search_flatpak(app_id, repo_name)
                     self.installed_results.extend(search_result)
         elif "updates" in category:
-            updates = searcher.check_updates()
+            updates = searcher.check_updates(system)
             for app_id, repo_name, repo_type in updates:
                 if repo_name:
                     search_result = searcher.search_flatpak(app_id, repo_name)
@@ -617,6 +615,7 @@ def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tupl
     Args:
         app (AppStreamPackage): The package to install.
         repo_name (str): Optional repository name to use for installation
+        system (Optional[bool]): Whether to operate on user or system installation
 
     Returns:
         tuple[bool, str]: (success, message)
@@ -644,7 +643,7 @@ def remove_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple
 
     Args:
         app (AppStreamPackage): The package to install.
-        user (Optional[bool]): Whether to operate on user or system installation
+        system (Optional[bool]): Whether to operate on user or system installation
 
     Returns:
         Tuple[bool, str]: (success, message)
@@ -872,6 +871,8 @@ def main():
     parser.add_argument('--remove', type=str, metavar='APP_ID',
                        help='Remove a Flatpak package')
     parser.add_argument('--system', action='store_true', help='Install as system instead of user')
+    parser.add_argument('--refresh', action='store_true', help='Install as system instead of user')
+    parser.add_argument('--refresh-local', action='store_true', help='Install as system instead of user')
 
     args = parser.parse_args()
 
@@ -978,8 +979,6 @@ def handle_list_installed(args, searcher):
     installed_apps = searcher.get_installed_apps(args.system)
     print(f"\nInstalled Flatpak Applications ({len(installed_apps)}):")
     for app_id, repo_name, repo_type in installed_apps:
-        parts = app_id.split('/')
-        app_id = parts[parts.index('app') + 1]
         print(f"{app_id} (Repository: {repo_name}, Installation: {repo_type})")
 
 def handle_check_updates(args, searcher):
