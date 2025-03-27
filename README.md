@@ -22,18 +22,18 @@ DONE:
 - Remove button functions
 - System mode backend
 - Search function
+- System mode toggle
 
 TODO:
 - Update button functions
 - Update management GUI
-- System mode toggle
 - Refresh metadata button
 - List Applications only checkbox
 - Package information page/section.
 - Implement subcategories
 - General GUI layout/theming improvements
 - Sort runtimes from Desktop Apps
-
+- add about section
 
 Usage (Temporary until proper packaging is added):
 
