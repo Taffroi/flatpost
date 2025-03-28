@@ -2,7 +2,7 @@
 ![screenshot](screenshots/flatshop_agnostic2.png)
 
 
-This is very much currently WIP.
+All basic flatpak functionality implementation is done.
 
 DONE:
 - Appstream metadata loading and search
@@ -23,16 +23,16 @@ DONE:
 - System mode backend
 - Search function
 - System mode toggle
+- Update button functions
 
 TODO:
-- Update button functions
-- Update management GUI
 - Refresh metadata button
+- Update management GUI
 - List Applications only checkbox
+- Sort runtimes from Desktop Apps
 - Package information page/section.
 - Implement subcategories
 - General GUI layout/theming improvements
-- Sort runtimes from Desktop Apps
 - add about section
 
 Usage (Temporary until proper packaging is added):

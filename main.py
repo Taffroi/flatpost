@@ -15,8 +15,7 @@ from pathlib import Path
 
 class MainWindow(Gtk.Window):
     def __init__(self):
-        super().__init__()
-
+        super().__init__(title="Flatshop")
         # Store search results as an instance variable
         self.all_apps = []
         self.category_results = []  # Initialize empty list
