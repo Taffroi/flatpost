@@ -672,6 +672,32 @@ def remove_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple
         return False, f"Failed to remove {app.id}: {e}"
     return True, f"Successfully removed {app.id}"
 
+def update_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple[bool, str]:
+    """
+    Remove a Flatpak package using transactions.
+
+    Args:
+        app (AppStreamPackage): The package to install.
+        system (Optional[bool]): Whether to operate on user or system installation
+
+    Returns:
+        Tuple[bool, str]: (success, message)
+    """
+    if not repo_name:
+        repo_name = "flathub"
+
+    # Get the appropriate installation based on user parameter
+    installation = get_installation(system)
+
+    # Create a new transaction for removal
+    transaction = Flatpak.Transaction.new_for_installation(installation)
+    transaction.add_update(app.flatpak_bundle)
+    # Run the transaction
+    try:
+        transaction.run()
+    except GLib.Error as e:
+        return False, f"Failed to update {app.id}: {e}"
+    return True, f"Successfully updated {app.id}"
 
 def get_installation(system=False):
     if system is False:
@@ -858,6 +884,8 @@ def main():
                        help='Install a Flatpak package')
     parser.add_argument('--remove', type=str, metavar='APP_ID',
                        help='Remove a Flatpak package')
+    parser.add_argument('--update', type=str, metavar='APP_ID',
+                       help='Update a Flatpak package')
     parser.add_argument('--system', action='store_true', help='Install as system instead of user')
     parser.add_argument('--refresh', action='store_true', help='Install as system instead of user')
     parser.add_argument('--refresh-local', action='store_true', help='Install as system instead of user')
@@ -890,6 +918,10 @@ def main():
 
     if args.remove:
         handle_remove(args, searcher)
+        return
+
+    if args.update:
+        handle_update(args, searcher)
         return
 
     # Handle information operations
@@ -967,7 +999,20 @@ def handle_remove(args, searcher):
             result_message = f"{message}"
             break
         except GLib.Error as e:
-            result_message = f"Installation of {args.install} failed: {str(e)}"
+            result_message = f"Removal of {args.remove} failed: {str(e)}"
+            pass
+    print(result_message)
+
+def handle_update(args, searcher):
+    packagelist = searcher.search_flatpak(args.update, args.repo)
+    result_message = ""
+    for package in packagelist:
+        try:
+            success, message = update_flatpak(package, args.repo, args.system)
+            result_message = f"{message}"
+            break
+        except GLib.Error as e:
+            result_message = f"Update of {args.update} failed: {str(e)}"
             pass
     print(result_message)
 

@@ -1162,12 +1162,49 @@ class MainWindow(Gtk.Window):
         dialog.destroy()
 
     def on_update_clicked(self, button, app):
-        """Handle the Update button click"""
+        """Handle the Remove button click with removal options"""
         details = app.get_details()
-        print(f"Updating application: {details['name']}")
-        # Implement update logic here
-        # Example:
-        # Flatpak.update(app_id=details['id'])
+
+        # Create dialog
+        dialog = Gtk.Dialog(
+            title=f"Update {details['name']}?",
+            transient_for=self,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        # Add buttons using the new method
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Update", Gtk.ResponseType.OK)
+
+        # Create content area
+        content_area = dialog.get_content_area()
+        content_area.set_spacing(12)
+        content_area.set_border_width(12)
+
+        content_area.pack_start(Gtk.Label(label=f"Update: {details['id']}?"), False, False, 0)
+
+        # Show dialog
+        dialog.show_all()
+
+        # Run dialog
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            # Perform Removal
+            def perform_update():
+                # Show waiting dialog
+                GLib.idle_add(self.show_waiting_dialog, "Updating package...")
+
+                success, message = libflatpak_query.update_flatpak(app, None, self.system_mode)
+
+                # Update UI on main thread
+                GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
+
+            # Start spinner and begin installation
+            thread = threading.Thread(target=perform_update)
+            thread.daemon = True  # Allow program to exit even if thread is still running
+            thread.start()
+
+        dialog.destroy()
 
     def on_details_clicked(self, button, app):
         """Handle the Details button click"""
