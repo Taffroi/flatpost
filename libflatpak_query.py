@@ -469,13 +469,13 @@ class AppstreamSearcher:
             # Process categories one at a time to keep GUI responsive
             for category, title in categories.items():
                 if "installed" in category:
-                    installed_apps = searcher.get_installed_apps()
+                    installed_apps = searcher.get_installed_apps(system)
                     for app_id, repo_name, repo_type in installed_apps:
                         if repo_name:
                             search_result = searcher.search_flatpak(app_id, repo_name)
                             self.installed_results.extend(search_result)
                 elif "updates" in category:
-                    updates = searcher.check_updates()
+                    updates = searcher.check_updates(system)
                     for repo_name, app_id, repo_type in updates:
                         if repo_name:
                             search_result = searcher.search_flatpak(app_id, repo_name)
@@ -641,9 +641,9 @@ def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tupl
     # Run the transaction
     try:
         transaction.run()
-        return True, f"Successfully installed {app.id}"
     except GLib.Error as e:
         return False, f"Installation failed: {e}"
+    return True, f"Successfully installed {app.id}"
 
 def remove_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple[bool, str]:
     """
@@ -661,21 +661,16 @@ def remove_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple
 
     # Get the appropriate installation based on user parameter
     installation = get_installation(system)
-    searcher = get_reposearcher(system)
 
-    installed_apps = searcher.get_installed_apps()
-    for ins_app_id_bundle, ins_repo_name, ins_repo_type in installed_apps:
-        if ins_app_id_bundle == app.flatpak_bundle:
-            # Create a new transaction for removal
-            transaction = Flatpak.Transaction.new_for_installation(installation)
-            transaction.add_uninstall(ins_app_id_bundle)
-            # Run the transaction
-            try:
-                transaction.run()
-                return True, f"Successfully removed {app.id}"
-            except GLib.Error as e:
-                return False, f"Failed to remove {app.id}: {e}"
-    return False, f"Application '{app.id}' is not installed."
+    # Create a new transaction for removal
+    transaction = Flatpak.Transaction.new_for_installation(installation)
+    transaction.add_uninstall(app.flatpak_bundle)
+    # Run the transaction
+    try:
+        transaction.run()
+    except GLib.Error as e:
+        return False, f"Failed to remove {app.id}: {e}"
+    return True, f"Successfully removed {app.id}"
 
 
 def get_installation(system=False):
@@ -952,21 +947,29 @@ def handle_remove_repo(args):
 
 def handle_install(args, searcher):
     packagelist = searcher.search_flatpak(args.install, args.repo)
+    result_message = ""
     for package in packagelist:
         try:
             success, message = install_flatpak(package, args.repo, args.system)
-            print(f"{message}")
+            result_message = f"{message}"
+            break
         except GLib.Error as e:
-            print(f"{str(e)}")
+            result_message = f"Installation of {args.install} failed: {str(e)}"
+            pass
+    print(result_message)
 
 def handle_remove(args, searcher):
     packagelist = searcher.search_flatpak(args.remove, args.repo)
+    result_message = ""
     for package in packagelist:
         try:
             success, message = remove_flatpak(package, args.repo, args.system)
-            print(f"{message}")
+            result_message = f"{message}"
+            break
         except GLib.Error as e:
-            print(f"{str(e)}")
+            result_message = f"Installation of {args.install} failed: {str(e)}"
+            pass
+    print(result_message)
 
 def handle_list_installed(args, searcher):
     installed_apps = searcher.get_installed_apps(args.system)

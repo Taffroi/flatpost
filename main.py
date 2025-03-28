@@ -253,6 +253,10 @@ class MainWindow(Gtk.Window):
                 self.system_mode = False
                 self.refresh_data()
                 self.refresh_current_page()
+            elif self.system_mode == False:
+                self.system_mode = True
+                self.refresh_data()
+                self.refresh_current_page()
 
     def populate_repo_dropdown(self):
         # Get list of repositories
@@ -1061,7 +1065,6 @@ class MainWindow(Gtk.Window):
             thread = threading.Thread(target=perform_installation)
             thread.daemon = True  # Allow program to exit even if thread is still running
             thread.start()
-
         dialog.destroy()
 
     def on_task_complete(self, dialog, success, message):
@@ -1079,11 +1082,12 @@ class MainWindow(Gtk.Window):
                 buttons=Gtk.ButtonsType.OK,
                 text=message
             )
-            self.refresh_local()
-            self.refresh_current_page()
             finished_dialog.run()
             finished_dialog.destroy()
+        self.refresh_local()
+        self.refresh_current_page()
         self.waiting_dialog.destroy()
+
 
     def on_remove_clicked(self, button, app):
         """Handle the Remove button click with removal options"""
@@ -1118,7 +1122,7 @@ class MainWindow(Gtk.Window):
                 # Show waiting dialog
                 GLib.idle_add(self.show_waiting_dialog, "Removing package...")
 
-                success, message = libflatpak_query.remove_flatpak(app, self.system_mode)
+                success, message = libflatpak_query.remove_flatpak(app, None, self.system_mode)
 
                 # Update UI on main thread
                 GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
