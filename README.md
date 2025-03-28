@@ -41,7 +41,8 @@ Shop: `./main.py`
 CLI:
 ```
 ./libflatpak_query.py -h
-usage: libflatpak_query.py [-h] [--id ID] [--repo REPO] [--list-all] [--categories] [--list-installed] [--check-updates] [--list-repos] [--add-repo REPO_FILE] [--remove-repo REPO_NAME] [--toggle-repo REPO_NAME ENABLE/DISABLE] [--install APP_ID] [--remove APP_ID] [--system]
+usage: libflatpak_query.py [-h] [--id ID] [--repo REPO] [--list-all] [--categories] [--list-installed] [--check-updates] [--list-repos] [--add-repo REPO_FILE] [--remove-repo REPO_NAME] [--toggle-repo ENABLE/DISABLE] [--install APP_ID] [--remove APP_ID] [--update APP_ID] [--system] [--refresh]
+                           [--refresh-local]
 
 Search Flatpak packages
 
@@ -57,12 +58,12 @@ options:
   --add-repo REPO_FILE  Add a new repository from a .flatpakrepo file
   --remove-repo REPO_NAME
                         Remove a Flatpak repository
-  --toggle-repo REPO_NAME ENABLE/DISABLE
+  --toggle-repo ENABLE/DISABLE
                         Enable or disable a repository
   --install APP_ID      Install a Flatpak package
   --remove APP_ID       Remove a Flatpak package
+  --update APP_ID       Update a Flatpak package
   --system              Install as system instead of user
-
 ```
 
 Common CLI combinations:
@@ -91,6 +92,6 @@ Common CLI combinations:
 ./libflatpak_query.py --install <app id> --repo <repo name> --system
 ./libflatpak_query.py --remove <app id>
 ./libflatpak_query.py --remove <app id> --system
-
-
+./libflatpak_query.py --update <app id>
+./libflatpak_query.py --update <app id> --system
 ```
