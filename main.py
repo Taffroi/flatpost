@@ -4,11 +4,14 @@ import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("GLib", "2.0")
 gi.require_version("Flatpak", "1.0")
-from gi.repository import Gtk, Gio, Gdk, GLib
+gi.require_version('GdkPixbuf', '2.0')
+from gi.repository import Gtk, Gio, Gdk, GLib, GdkPixbuf
 import libflatpak_query
 import json
 import threading
 import subprocess
+from pathlib import Path
+
 
 class MainWindow(Gtk.Window):
     def __init__(self):
@@ -784,6 +787,24 @@ class MainWindow(Gtk.Window):
             return
         self.display_apps(apps)
 
+    def create_scaled_icon(self, icon, is_themed=False):
+        if is_themed:
+            # For themed icons, create a pixbuf directly using the icon theme
+            icon_theme = Gtk.IconTheme.get_default()
+            pb = icon_theme.load_icon(icon.get_names()[0], 64, Gtk.IconLookupFlags.FORCE_SIZE)
+        else:
+            # For file-based icons
+            pb = GdkPixbuf.Pixbuf.new_from_file(icon)
+
+        # Scale to 64x64 using high-quality interpolation
+        scaled_pb = pb.scale_simple(
+            64, 64,  # New dimensions
+            GdkPixbuf.InterpType.BILINEAR  # High-quality scaling
+        )
+
+        # Create the image widget from the scaled pixbuf
+        return Gtk.Image.new_from_pixbuf(scaled_pb)
+
     def display_apps(self, apps):
         for child in self.right_container.get_children():
             child.destroy()
@@ -827,12 +848,18 @@ class MainWindow(Gtk.Window):
 
             # Add icon placeholder
             icon_box = Gtk.Box()
-            icon_box.set_size_request(148, -1)
+            icon_box.set_size_request(88, -1)
 
             # Create and add the icon
-            icon = Gtk.Image.new_from_file(f"{details['icon_path_128']}/{details['icon_filename']}")
-            icon.set_size_request(48, 48)
-            icon_box.pack_start(icon, True, True, 0)
+            app_icon = Gio.Icon.new_for_string('package-x-generic-symbolic')
+            icon_widget = self.create_scaled_icon(app_icon, is_themed=True)
+
+            if  details['icon_filename']:
+                if Path(details['icon_path_128'] + "/" + details['icon_filename']).exists():
+                    icon_widget = self.create_scaled_icon(f"{details['icon_path_128']}/{details['icon_filename']}", is_themed=False)
+
+            icon_widget.set_size_request(64, 64)
+            icon_box.pack_start(icon_widget, True, True, 0)
 
             # Create right side layout for text
             right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -910,7 +937,7 @@ class MainWindow(Gtk.Window):
                     condition=lambda x: True
                 )
                 if update_button:
-                    update_icon = Gio.Icon.new_for_string('synchronize')
+                    update_icon = Gio.Icon.new_for_string('system-software-update-symbolic')
                     update_button.set_image(Gtk.Image.new_from_gicon(update_icon, Gtk.IconSize.BUTTON))
                     update_button.get_style_context().add_class("dark-install-button")
                     buttons_box.pack_end(update_button, False, False, 0)
