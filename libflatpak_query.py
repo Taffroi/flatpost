@@ -246,9 +246,20 @@ class AppstreamSearcher:
         packages = []
         metadata = AppStream.Metadata.new()
         metadata.set_format_style(AppStream.FormatStyle.CATALOG)
-        #if self.refresh:
-        #    inst.update_appstream_full_sync(remote.get_name(), None, None, True)
+        if self.refresh:
+            if remote.get_name() == "flathub" or remote.get_name() == "flathub-beta":
+                remote.set_gpg_verify(True)
+                inst.modify_remote(remote, None)
+            inst.update_appstream_full_sync(remote.get_name(), None, None, True)
         appstream_file = Path(remote.get_appstream_dir().get_path() + "/appstream.xml.gz")
+        if not appstream_file.exists() and check_internet():
+            try:
+                if remote.get_name() == "flathub" or remote.get_name() == "flathub-beta":
+                    remote.set_gpg_verify(True)
+                    inst.modify_remote(remote, None)
+                inst.update_appstream_full_sync(remote.get_name(), None, None, True)
+            except GLib.Error as e:
+                logger.error(f"Failed to update AppStream metadata: {str(e)}")
         if appstream_file.exists():
             metadata.parse_file(Gio.File.new_for_path(appstream_file.as_posix()), AppStream.FormatKind.XML)
             components: AppStream.ComponentBox = metadata.get_components()
@@ -475,17 +486,14 @@ class AppstreamSearcher:
         return self.installed_results, self.updates_results
 
 
-    def retrieve_metadata(self, system=False, refresh=True):
+    def retrieve_metadata(self, system=False):
         """Retrieve and refresh metadata for Flatpak repositories."""
         self._initialize_metadata()
 
         if not check_internet():
             return self._handle_offline_mode()
 
-        if system:
-            refresh = False
-
-        searcher = get_reposearcher(system, refresh)
+        searcher = get_reposearcher(system, True)
         self.all_apps = searcher.get_all_apps()
 
         return self._process_categories(searcher, system)
@@ -678,14 +686,8 @@ def get_installation(system=False):
     return installation
 
 def get_reposearcher(system=False, refresh=False):
-    if system is False:
-        installation = get_installation()
-    else:
-        installation = get_installation(True)
-    if refresh is True:
-        searcher = AppstreamSearcher(refresh)
-    else:
-        searcher = AppstreamSearcher()
+    installation = get_installation(system)
+    searcher = AppstreamSearcher(refresh)
     searcher.add_installation(installation)
     return searcher
 
@@ -712,10 +714,7 @@ def repotoggle(repo, toggle=True, system=False):
     if not repo:
         return False, "Repository name cannot be empty"
 
-    if system is False:
-        installation = get_installation()
-    else:
-        installation = get_installation(True)
+    installation = get_installation(system)
 
     try:
         remote = installation.get_remote_by_name(repo)
@@ -742,27 +741,18 @@ def repotoggle(repo, toggle=True, system=False):
     return False, "Operation failed"
 
 def repolist(system=False):
-    if system is False:
-        installation = get_installation()
-    else:
-        installation = get_installation(True)
+    installation = get_installation(system)
     repos = installation.list_remotes()
     return repos
 
 def repodelete(repo, system=False):
-    if system is False:
-        installation = get_installation()
-    else:
-        installation = get_installation(True)
+    installation = get_installation(system)
     installation.remove_remote(repo)
 
 def repoadd(repofile, system=False):
     """Add a new repository using a .flatpakrepo file"""
     # Get existing repositories
-    if system is False:
-        installation = get_installation()
-    else:
-        installation = get_installation(True)
+    installation = get_installation(system)
     existing_repos = installation.list_remotes()
 
     if not repofile.endswith('.flatpakrepo'):
@@ -809,11 +799,14 @@ def repoadd(repofile, system=False):
         # Check if URL already exists
         if new_url in existing_urls:
             return False, f"A repository with URL '{new_url}' already exists."
-
+        user = "user"
+        if system:
+            user = "system"
+        remote.set_gpg_verify(True)
         installation.add_remote(remote, True, None)
     except GLib.GError as e:
         return False, f"Failed to add repository: {str(e)}"
-    return True, None
+    return True, f"{remote.get_name()} repository successfully added for {user} installation."
 
 def repofile_is_url(string):
     """Check if a string is a valid URL"""
@@ -937,8 +930,8 @@ def handle_repo_toggle(args):
     try:
         success, message = repotoggle(repo_name, get_status, args.system)
         print(f"{message}")
-    except GLib.Error:
-        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
 
 def handle_list_repos(args):
     repos = repolist(args.system)
@@ -950,8 +943,8 @@ def handle_add_repo(args):
     try:
         success, message = repoadd(args.add_repo, args.system)
         print(f"{message}")
-    except GLib.Error:
-        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
 
 def handle_remove_repo(args):
     repodelete(args.remove_repo, args.system)
@@ -963,8 +956,8 @@ def handle_install(args, searcher):
         try:
             success, message = install_flatpak(package, args.repo, args.system)
             print(f"{message}")
-        except GLib.Error:
-            print(f"{message}")
+        except GLib.Error as e:
+            print(f"{str(e)}")
 
 def handle_remove(args, searcher):
     packagelist = searcher.search_flatpak(args.remove, args.repo)
@@ -972,8 +965,8 @@ def handle_remove(args, searcher):
         try:
             success, message = remove_flatpak(package, args.repo, args.system)
             print(f"{message}")
-        except GLib.Error:
-            print(f"{message}")
+        except GLib.Error as e:
+            print(f"{str(e)}")
 
 def handle_list_installed(args, searcher):
     installed_apps = searcher.get_installed_apps(args.system)

@@ -233,7 +233,7 @@ class MainWindow(Gtk.Window):
         if desired_state:
             # Request superuser validation
             try:
-                subprocess.run(['pkexec', 'true'], check=True)
+                #subprocess.run(['pkexec', 'true'], check=True)
                 self.system_mode = True
                 self.refresh_data()
                 self.refresh_current_page()
@@ -297,7 +297,7 @@ class MainWindow(Gtk.Window):
         searcher = libflatpak_query.get_reposearcher(self.system_mode)
 
         # Define thread target function
-        def refresh_target():
+        def retrieve_metadata():
             try:
                 category_results, collection_results, installed_results, updates_results, all_apps = searcher.retrieve_metadata(self.system_mode)
                 self.category_results = category_results
@@ -306,20 +306,18 @@ class MainWindow(Gtk.Window):
                 self.updates_results = updates_results
                 self.all_apps = all_apps
             except Exception as e:
-                message_type = Gtk.MessageType.ERROR
                 dialog = Gtk.MessageDialog(
                     transient_for=None,  # Changed from self
                     modal=True,
                     destroy_with_parent=True,
-                    message_type=message_type,
+                    message_type=Gtk.MessageType.ERROR,
                     buttons=Gtk.ButtonsType.OK,
-                    text=f"Error updating progress: {str(e)}"
+                    text=f"Error retrieving metadata: {str(e)}"
                 )
                 dialog.run()
                 dialog.destroy()
-
         # Start the refresh thread
-        refresh_thread = threading.Thread(target=refresh_target)
+        refresh_thread = threading.Thread(target=retrieve_metadata)
         refresh_thread.start()
         def update_progress():
             while refresh_thread.is_alive():
