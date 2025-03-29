@@ -2,6 +2,11 @@
 ![screenshot](screenshots/flatshop_agnostic2.png)
 
 
+I wanted a desktop environment agnostic flatpak store that didn't require pulling in gnome or kde dependencies.
+
+Built with python, gtk, libflatpak, appstream
+
+
 All basic flatpak functionality implementation is done.
 
 DONE:
@@ -29,9 +34,12 @@ DONE:
 - Implement kind sorting dropdown for current page
 - Implement kind sorting search filter
 - Refresh metadata button
+- Add install from .flatpakref functionality + drag and drop
+- Add install from .flatpakrepo functionality + drag and drop
+
 
 TODO:
-- Add install from .flatpakref functionality
+- Implement global option to allow any flatpak install desktop_app kind to access user home directory (this will be good for new users for things like discord and file sharing)
 - Package information page/section.
 - add about section
 - Update management GUI (individual apps can already be updated)
@@ -40,6 +48,7 @@ TODO:
 Usage (Temporary until proper packaging is added):
 
 Shop: `./main.py`
+
 CLI:
 ```
 ./libflatpak_query.py -h
