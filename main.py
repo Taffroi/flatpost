@@ -309,19 +309,28 @@ class MainWindow(Gtk.Window):
         # Create horizontal bar
         self.top_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.top_bar.set_hexpand(True)
+        self.top_bar.set_vexpand(False)
         self.top_bar.set_spacing(6)
-        self.top_bar.set_border_width(6)
+        self.top_bar.set_border_width(0)  # Remove border width
+        self.top_bar.set_margin_top(0)    # Remove top margin
+        self.top_bar.set_margin_bottom(0) # Remove bottom margin
 
         # Add search bar
         self.searchbar = Gtk.SearchBar()  # Use self.searchbar instead of searchbar
-        self.searchbar.set_hexpand(True)
+        self.searchbar.set_hexpand(False)
+        self.searchbar.set_vexpand(False)
         self.searchbar.set_margin_bottom(6)
+        self.searchbar.set_margin_bottom(0)  # Remove bottom margin
+        self.searchbar.set_margin_top(0)     # Remove top margin
 
         # Create search entry with icon
         searchentry = Gtk.SearchEntry()
         searchentry.set_placeholder_text("Search applications...")
         searchentry.set_icon_from_gicon(Gtk.EntryIconPosition.PRIMARY,
                                     Gio.Icon.new_for_string('search'))
+        searchentry.set_margin_top(0)    # Remove top margin
+        searchentry.set_margin_bottom(0) # Remove bottom margin
+        searchentry.set_size_request(-1, 10)  # Set specific height
 
         # Connect search entry signals
         searchentry.connect("search-changed", self.on_search_changed)
@@ -330,7 +339,6 @@ class MainWindow(Gtk.Window):
         # Connect search entry to search bar
         self.searchbar.connect_entry(searchentry)
         self.searchbar.add(searchentry)
-
         self.searchbar.set_search_mode(True)
 
         self.top_bar.pack_start(self.searchbar, False, False, 0)
@@ -339,6 +347,7 @@ class MainWindow(Gtk.Window):
         # Create component type dropdown
         self.component_type_combo = Gtk.ComboBoxText()
         self.component_type_combo.set_hexpand(False)
+        self.component_type_combo.set_vexpand(False)
         self.component_type_combo.set_size_request(150, -1)  # Set width in pixels
         self.component_type_combo.connect("changed", self.on_component_type_changed)
 
@@ -363,6 +372,7 @@ class MainWindow(Gtk.Window):
         # Create system mode switch
         self.system_switch = Gtk.Switch()
         self.system_switch.connect("notify::active", self.on_system_mode_toggled)
+        self.system_switch.set_hexpand(False)
         self.system_switch.set_vexpand(False)
 
         # Create system mode label
