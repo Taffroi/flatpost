@@ -366,6 +366,14 @@ class MainWindow(Gtk.Window):
         self.top_bar.pack_start(self.component_type_combo_label, False, False, 0)
         self.top_bar.pack_start(self.component_type_combo, False, False, 0)
 
+        # Add repository button
+        refresh_metadata_button = Gtk.Button()
+        refresh_metadata_button.set_tooltip_text("Refresh metadata")
+        refresh_metadata_button_icon = Gio.Icon.new_for_string('system-reboot-symbolic')
+        refresh_metadata_button.set_image(Gtk.Image.new_from_gicon(refresh_metadata_button_icon, Gtk.IconSize.BUTTON))
+        refresh_metadata_button.get_style_context().add_class("dark-install-button")
+        refresh_metadata_button.connect("clicked", self.on_refresh_metadata_button_clicked)
+
         # Create system mode switch box
         system_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
 
@@ -385,8 +393,15 @@ class MainWindow(Gtk.Window):
         # Add system controls to header
         self.top_bar.pack_end(system_box, False, False, 0)
 
+        # Add refresh metadata button
+        self.top_bar.pack_end(refresh_metadata_button, False, False, 0)
+
         # Add the top bar to the main box
         self.main_box.pack_start(self.top_bar, False, True, 0)
+
+    def on_refresh_metadata_button_clicked(self, button):
+        self.refresh_data()
+        self.refresh_current_page()
 
     def on_component_type_changed(self, combo):
         """Handle component type filter changes"""

@@ -28,9 +28,9 @@ DONE:
 - Implement kind sorting in the installed/updates sections (desktop_app, addon, runtime, other..)
 - Implement kind sorting dropdown for current page
 - Implement kind sorting search filter
+- Refresh metadata button
 
 TODO:
-- Refresh metadata button
 - Update management GUI (individual apps can already be updated)
 - Package information page/section.
 - add about section
