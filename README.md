@@ -25,10 +25,11 @@ DONE:
 - System mode toggle
 - Update button functions
 - Implement subcategories
+- Implement kind sorting in the installed/updates sections (desktop_app, addon, runtime, other..)
+- Implement kind sorting dropdown for current page
+- Implement kind sorting search filter
 
 TODO:
-- filtering: List Applications only checkbox
-- filtering: Sort runtimes from Desktop Apps
 - Refresh metadata button
 - Update management GUI (individual apps can already be updated)
 - Package information page/section.
