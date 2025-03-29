@@ -606,6 +606,7 @@ class MainWindow(Gtk.Window):
 
     def on_search_activate(self, searchentry):
         """Handle Enter key press in search"""
+        self.update_category_header("Search Results")
         search_term = searchentry.get_text().lower()
         if not search_term:
             # Reset to showing all categories when search is empty
@@ -702,7 +703,7 @@ class MainWindow(Gtk.Window):
                     break
             if display_title == "":
                 # Fallback if category isn't found
-                display_title = category.capitalize()
+                display_title = category
         self.category_header.set_label(display_title)
 
     def create_applications_panel(self, title):
@@ -1198,6 +1199,17 @@ class MainWindow(Gtk.Window):
             title_label.set_hexpand(True)
 
             # Add repository labels
+            kind_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            kind_box.set_spacing(4)
+            kind_box.set_halign(Gtk.Align.START)
+            kind_box.set_valign(Gtk.Align.START)
+
+            kind_label = Gtk.Label(label=details['kind'])
+            kind_label.get_style_context().add_class("item-repo-label")
+            kind_label.set_halign(Gtk.Align.START)
+            kind_box.pack_end(kind_label, False, False, 0)
+
+            # Add repository labels
             repo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
             repo_box.set_spacing(4)
             repo_box.set_halign(Gtk.Align.END)
@@ -1293,6 +1305,7 @@ class MainWindow(Gtk.Window):
 
             # Add widgets to right box
             right_box.pack_start(title_label, False, False, 0)
+            right_box.pack_start(kind_box, False, False, 0)
             right_box.pack_start(repo_box, False, False, 0)
             right_box.pack_start(desc_label, False, False, 0)
             right_box.pack_start(buttons_box, False, True, 0)

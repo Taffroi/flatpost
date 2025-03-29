@@ -33,7 +33,6 @@
 # which have been modified and extended.
 
 
-from typing import cast
 import gi
 gi.require_version("AppStream", "1.0")
 gi.require_version("Flatpak", "1.0")
@@ -62,6 +61,59 @@ class Match(IntEnum):
     SUMMARY = 3
     NONE = 4
 
+class AppStreamComponentKind(IntEnum):
+    """AppStream Component Kind enumeration."""
+
+    UNKNOWN = 0
+    """Type invalid or not known."""
+
+    GENERIC = 1
+    """A generic (= without specialized type) component."""
+
+    DESKTOP_APP = 2
+    """An application with a .desktop-file."""
+
+    CONSOLE_APP = 3
+    """A console application."""
+
+    WEB_APP = 4
+    """A web application."""
+
+    SERVICE = 5
+    """A system service launched by the init system."""
+
+    ADDON = 6
+    """An extension of existing software, which does not run standalone."""
+
+    RUNTIME = 7
+    """An application runtime platform."""
+
+    FONT = 8
+    """A font."""
+
+    CODEC = 9
+    """A multimedia codec."""
+
+    INPUT_METHOD = 10
+    """An input-method provider."""
+
+    OPERATING_SYSTEM = 11
+    """A computer operating system."""
+
+    FIRMWARE = 12
+    """Firmware."""
+
+    DRIVER = 13
+    """A driver."""
+
+    LOCALIZATION = 14
+    """Software localization (usually l10n resources)."""
+
+    REPOSITORY = 15
+    """A remote software or data source."""
+
+    ICON_THEME = 16
+    """An icon theme following the XDG specification."""
 
 class AppStreamPackage:
     def __init__(self, comp: AppStream.Component, remote: Flatpak.Remote) -> None:
@@ -108,9 +160,13 @@ class AppStreamPackage:
         return None
 
     @property
-    def kind(self) -> str:
-        return str(self.component.get_kind())
+    def kind(self):
+        kind = self.component.get_kind()
+        kind_str = str(kind)
 
+        for member in AppStreamComponentKind:
+            if member.name in kind_str:
+                return member.name
 
     def _get_icon_url(self) -> str:
         """Get the remote icon URL from the component"""
