@@ -31,9 +31,10 @@ DONE:
 - Refresh metadata button
 
 TODO:
-- Update management GUI (individual apps can already be updated)
+- Add install from .flatpakref functionality
 - Package information page/section.
 - add about section
+- Update management GUI (individual apps can already be updated)
 - General GUI layout/theming improvements
 
 Usage (Temporary until proper packaging is added):
