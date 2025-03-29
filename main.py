@@ -321,16 +321,16 @@ class MainWindow(Gtk.Window):
         if file_path and file_path.endswith('.flatpakref'):
             self.handle_flatpakref_file(file_path)
         if file_path and file_path.endswith('.flatpakrepo'):
-            self.handle_flatpakref_file(file_path)
+            self.handle_flatpakrepo_file(file_path)
         context.finish(True, False, time)
 
     def handle_flatpakref_file(self, file_path):
         """Handle .flatpakref file installation"""
-        self.on_install_clicked(file_path, None)
+        self.on_install_clicked(None, file_path)
 
     def handle_flatpakrepo_file(self, file_path):
         """Handle .flatpakrepo file installation"""
-        # Show waiting dialog
+        self.on_add_repo_button_clicked(None, file_path)
 
     def create_header_bar(self):
         # Create horizontal bar
@@ -1473,9 +1473,7 @@ class MainWindow(Gtk.Window):
         # this is a stupid workaround for our button creator
         # so that we can use the same function in drag and drop
         # which of course does not have a button object
-        elif button and not app:
-            app = button
-            button = None
+        elif app and not button:
             title=f"Install {app}?"
             label=f"Install: {app}?"
         else:
@@ -1835,37 +1833,70 @@ class MainWindow(Gtk.Window):
         self.refresh_local()
         self.show_category_apps('repositories')
 
-    def on_add_repo_button_clicked(self, button):
+    def on_add_repo_button_clicked(self, button=None, file_path=None):
         """Handle the Add Repository button click"""
+        response = Gtk.ResponseType.CANCEL
+        dialog = Gtk.Dialog(
+            title="Install?",
+            transient_for=self,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        repo_file_path = ""
         # Create file chooser dialog
-        dialog = Gtk.FileChooserDialog(
-            title="Select Repository File",
-            parent=self,
-            action=Gtk.FileChooserAction.OPEN,
-            flags=0
-        )
+        if button and not file_path:
+            dialog = Gtk.FileChooserDialog(
+                title="Select Repository File",
+                parent=self,
+                action=Gtk.FileChooserAction.OPEN,
+                flags=0
+            )
 
-        # Add buttons using the new method
-        dialog.add_buttons(
-            "Cancel", Gtk.ResponseType.CANCEL,
-            "Open", Gtk.ResponseType.OK
-        )
+            # Add buttons using the new method
+            dialog.add_buttons(
+                "Cancel", Gtk.ResponseType.CANCEL,
+                "Open", Gtk.ResponseType.OK
+            )
 
-        # Add filter for .flatpakrepo files
-        repo_filter = Gtk.FileFilter()
-        repo_filter.set_name("Flatpak Repository Files")
-        repo_filter.add_pattern("*.flatpakrepo")
-        dialog.add_filter(repo_filter)
+            # Add filter for .flatpakrepo files
+            repo_filter = Gtk.FileFilter()
+            repo_filter.set_name("Flatpak Repository Files")
+            repo_filter.add_pattern("*.flatpakrepo")
+            dialog.add_filter(repo_filter)
 
-        # Show all files filter
-        all_filter = Gtk.FileFilter()
-        all_filter.set_name("All Files")
-        all_filter.add_pattern("*")
-        dialog.add_filter(all_filter)
+            # Show all files filter
+            all_filter = Gtk.FileFilter()
+            all_filter.set_name("All Files")
+            all_filter.add_pattern("*")
+            dialog.add_filter(all_filter)
+            response = dialog.run()
+            repo_file_path = dialog.get_filename()
+        elif file_path and not button:
+            # Create dialog
+            dialog = Gtk.Dialog(
+                title=f"Install {file_path}?",
+                transient_for=self,
+                modal=True,
+                destroy_with_parent=True,
+            )
+            # Add buttons using the new method
+            dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+            dialog.add_button("Install", Gtk.ResponseType.OK)
 
-        # Run the dialog
-        response = dialog.run()
-        repo_file_path = dialog.get_filename()
+            # Create content area
+            content_area = dialog.get_content_area()
+            content_area.set_spacing(12)
+            content_area.set_border_width(12)
+
+            content_area.pack_start(Gtk.Label(label=f"Install {file_path}?"), False, False, 0)
+
+            if self.system_mode is False:
+                content_area.pack_start(Gtk.Label(label="Installation Type: User"), False, False, 0)
+            else:
+                content_area.pack_start(Gtk.Label(label="Installation Type: System"), False, False, 0)
+            dialog.show_all()
+            response = dialog.run()
+            repo_file_path = file_path
         dialog.destroy()
 
         if response == Gtk.ResponseType.OK and repo_file_path:
@@ -1898,6 +1929,14 @@ def main():
             # Create a temporary window just to handle the installation
             app = MainWindow()
             app.handle_flatpakref_file(arg)
+            # Keep the window open for 5 seconds to show the result
+            GLib.timeout_add_seconds(5, Gtk.main_quit)
+            Gtk.main()
+            return
+        if arg.endswith('.flatpakrepo'):
+            # Create a temporary window just to handle the installation
+            app = MainWindow()
+            app.handle_flatpakrepo_file(arg)
             # Keep the window open for 5 seconds to show the result
             GLib.timeout_add_seconds(5, Gtk.main_quit)
             Gtk.main()
