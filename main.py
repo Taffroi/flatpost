@@ -335,19 +335,26 @@ class MainWindow(Gtk.Window):
 
         self.top_bar.pack_start(self.searchbar, False, False, 0)
 
+        self.component_type_combo_label = Gtk.Label(label="Search Type:")
         # Create component type dropdown
         self.component_type_combo = Gtk.ComboBoxText()
         self.component_type_combo.set_hexpand(False)
         self.component_type_combo.set_size_request(150, -1)  # Set width in pixels
         self.component_type_combo.connect("changed", self.on_component_type_changed)
 
+        # Add "ALL" option first
+        self.component_type_combo.append_text("ALL")
+
         # Add all component types
         for kind in AppKind:
             if kind != AppKind.UNKNOWN:
                 self.component_type_combo.append_text(kind.name)
-        #self.component_type_combo.set_active(AppKind.DESKTOP_APP.value - 1)
+
+        # Select "ALL" by default
+        self.component_type_combo.set_active(0)
 
         # Add dropdown to header bar
+        self.top_bar.pack_start(self.component_type_combo_label, False, False, 0)
         self.top_bar.pack_start(self.component_type_combo, False, False, 0)
 
         # Create system mode switch box
@@ -375,7 +382,10 @@ class MainWindow(Gtk.Window):
         """Handle component type filter changes"""
         selected_type = combo.get_active_text()
         if selected_type:
-            self.current_component_type = selected_type
+            if selected_type == "ALL":
+                self.current_component_type = None
+            else:
+                self.current_component_type = selected_type
         else:
             self.current_component_type = None
         self.refresh_current_page()
@@ -1162,11 +1172,10 @@ class MainWindow(Gtk.Window):
             self.right_container.show_all()
             return
 
-        if not 'installed' or 'updates' in category:
-            # Apply component type filter if set
-            component_type_filter = self.current_component_type
-            if component_type_filter:
-                apps = [app for app in apps if app.get_details()['kind'] == component_type_filter]
+        # Apply component type filter if set
+        component_type_filter = self.current_component_type
+        if component_type_filter:
+            apps = [app for app in apps if app.get_details()['kind'] == component_type_filter]
 
         self.display_apps(apps)
 
