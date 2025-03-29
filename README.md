@@ -27,13 +27,13 @@ DONE:
 - Implement subcategories
 
 TODO:
+- filtering: List Applications only checkbox
+- filtering: Sort runtimes from Desktop Apps
 - Refresh metadata button
-- Update management GUI
-- List Applications only checkbox
-- Sort runtimes from Desktop Apps
+- Update management GUI (individual apps can already be updated)
 - Package information page/section.
-- General GUI layout/theming improvements
 - add about section
+- General GUI layout/theming improvements
 
 Usage (Temporary until proper packaging is added):
 
