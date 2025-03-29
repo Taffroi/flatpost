@@ -7,6 +7,7 @@ gi.require_version("Flatpak", "1.0")
 gi.require_version('GdkPixbuf', '2.0')
 from gi.repository import Gtk, Gio, Gdk, GLib, GdkPixbuf
 import libflatpak_query
+from libflatpak_query import AppStreamComponentKind as AppKind
 import json
 import threading
 import subprocess
@@ -18,6 +19,7 @@ class MainWindow(Gtk.Window):
         super().__init__(title="Flatshop")
         # Store search results as an instance variable
         self.all_apps = []
+        self.current_component_type = None
         self.category_results = []  # Initialize empty list
         self.subcategory_results = []  # Initialize empty list
         self.collection_results = []  # Initialize empty list
@@ -333,6 +335,21 @@ class MainWindow(Gtk.Window):
 
         self.top_bar.pack_start(self.searchbar, False, False, 0)
 
+        # Create component type dropdown
+        self.component_type_combo = Gtk.ComboBoxText()
+        self.component_type_combo.set_hexpand(False)
+        self.component_type_combo.set_size_request(150, -1)  # Set width in pixels
+        self.component_type_combo.connect("changed", self.on_component_type_changed)
+
+        # Add all component types
+        for kind in AppKind:
+            if kind != AppKind.UNKNOWN:
+                self.component_type_combo.append_text(kind.name)
+        #self.component_type_combo.set_active(AppKind.DESKTOP_APP.value - 1)
+
+        # Add dropdown to header bar
+        self.top_bar.pack_start(self.component_type_combo, False, False, 0)
+
         # Create system mode switch box
         system_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
 
@@ -353,6 +370,15 @@ class MainWindow(Gtk.Window):
 
         # Add the top bar to the main box
         self.main_box.pack_start(self.top_bar, False, True, 0)
+
+    def on_component_type_changed(self, combo):
+        """Handle component type filter changes"""
+        selected_type = combo.get_active_text()
+        if selected_type:
+            self.current_component_type = selected_type
+        else:
+            self.current_component_type = None
+        self.refresh_current_page()
 
     def on_system_mode_toggled(self, switch, gparam):
         """Handle system mode toggle switch state changes"""
@@ -631,14 +657,23 @@ class MainWindow(Gtk.Window):
         self.show_search_results(filtered_apps)
 
     def rank_search_results(self, search_term, searchable_items):
-        """Rank search results based on match type"""
+        """Rank search results based on match type and component type filter"""
         exact_id_matches = []
         exact_name_matches = []
         partial_matches = []
         other_matches = []
 
+        # Get current component type filter
+        component_type_filter = self.current_component_type
+        if component_type_filter is None:
+            component_type_filter = None  # Allow all types
+
         # Process each item
         for item in searchable_items:
+            # Check if component type matches filter
+            if component_type_filter and item['app'].get_details()['kind'] != component_type_filter:
+                continue
+
             # Check exact ID match
             if item['id'] == search_term:
                 exact_id_matches.append(item['app'])
@@ -692,6 +727,8 @@ class MainWindow(Gtk.Window):
     def update_category_header(self, category):
         """Update the category header text based on the selected category."""
         display_title = ""
+        if category in self.category_groups['system']:
+            display_title = self.category_groups['system'][category]
         if category in self.category_groups['collections']:
             display_title = self.category_groups['collections'][category]
         elif category in self.category_groups['categories']:
@@ -943,6 +980,15 @@ class MainWindow(Gtk.Window):
         for child in container.get_children():
             child.destroy()
 
+    def get_app_priority(self, kind):
+        """Convert AppKind to numeric priority for sorting"""
+        priorities = {
+            "DESKTOP_APP": 0,
+            "ADDON": 1,
+            "RUNTIME": 2
+        }
+        return priorities.get(kind, 3)
+
     def show_category_apps(self, category):
         # Initialize apps list
         apps = []
@@ -952,6 +998,11 @@ class MainWindow(Gtk.Window):
             apps.extend([app for app in self.installed_results])
         if 'updates' in category:
             apps.extend([app for app in self.updates_results])
+
+        if ('installed' in category) or ('updates' in category):
+            # Sort apps by component type priority
+            if apps:
+                apps.sort(key=lambda app: self.get_app_priority(app.get_details()['kind']))
 
         # Load collections data
         try:
@@ -1110,6 +1161,13 @@ class MainWindow(Gtk.Window):
 
             self.right_container.show_all()
             return
+
+        if not 'installed' or 'updates' in category:
+            # Apply component type filter if set
+            component_type_filter = self.current_component_type
+            if component_type_filter:
+                apps = [app for app in apps if app.get_details()['kind'] == component_type_filter]
+
         self.display_apps(apps)
 
     def create_scaled_icon(self, icon, is_themed=False):
