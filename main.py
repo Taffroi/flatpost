@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import gi
+import sys
 gi.require_version("Gtk", "3.0")
 gi.require_version("GLib", "2.0")
 gi.require_version("Flatpak", "1.0")
@@ -31,6 +32,11 @@ class MainWindow(Gtk.Window):
 
         # Set window size
         self.set_default_size(1280, 720)
+
+        # Enable drag and drop
+        self.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
+        self.drag_dest_add_uri_targets()
+        self.connect("drag-data-received", self.on_drag_data_received)
 
         # Define category groups and their titles
         self.category_groups = {
@@ -304,6 +310,27 @@ class MainWindow(Gtk.Window):
 
         # Select Trending by default
         self.select_default_category()
+
+    def on_drag_data_received(self, widget, context, x, y, data, info, time):
+        """Handle drag and drop events"""
+        # Check if data is a URI list
+        if isinstance(data, int):
+            return
+        uri = data.get_uris()[0]
+        file_path = Gio.File.new_for_uri(uri).get_path()
+        if file_path and file_path.endswith('.flatpakref'):
+            self.handle_flatpakref_file(file_path)
+        if file_path and file_path.endswith('.flatpakrepo'):
+            self.handle_flatpakref_file(file_path)
+        context.finish(True, False, time)
+
+    def handle_flatpakref_file(self, file_path):
+        """Handle .flatpakref file installation"""
+        self.on_install_clicked(file_path, None)
+
+    def handle_flatpakrepo_file(self, file_path):
+        """Handle .flatpakrepo file installation"""
+        # Show waiting dialog
 
     def create_header_bar(self):
         # Create horizontal bar
@@ -1435,13 +1462,38 @@ class MainWindow(Gtk.Window):
         # Show dialog
         self.waiting_dialog.show_all()
 
-    def on_install_clicked(self, button, app):
+    def on_install_clicked(self, button=None, app=None):
         """Handle the Install button click with installation options"""
-        details = app.get_details()
-
+        id=""
+        if button and app:
+            details = app.get_details()
+            title=f"Install {details['name']}?"
+            label=f"Install: {details['id']}?"
+            id=details['id']
+        # this is a stupid workaround for our button creator
+        # so that we can use the same function in drag and drop
+        # which of course does not have a button object
+        elif button and not app:
+            app = button
+            button = None
+            title=f"Install {app}?"
+            label=f"Install: {app}?"
+        else:
+            message_type=Gtk.MessageType.ERROR
+            finished_dialog = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                destroy_with_parent=True,
+                message_type=message_type,
+                buttons=Gtk.ButtonsType.OK,
+                text="Error: No app specified"
+            )
+            finished_dialog.run()
+            finished_dialog.destroy()
+            return
         # Create dialog
         dialog = Gtk.Dialog(
-            title=f"Install {details['name']}?",
+            title=title,
             transient_for=self,
             modal=True,
             destroy_with_parent=True,
@@ -1458,7 +1510,7 @@ class MainWindow(Gtk.Window):
         # Create repository dropdown
         repo_combo = Gtk.ComboBoxText()
 
-        content_area.pack_start(Gtk.Label(label=f"Install: {details['id']}?"), False, False, 0)
+        content_area.pack_start(Gtk.Label(label=label), False, False, 0)
 
         # Search for available repositories containing this app
         searcher = libflatpak_query.get_reposearcher(self.system_mode)
@@ -1468,56 +1520,59 @@ class MainWindow(Gtk.Window):
             content_area.pack_start(Gtk.Label(label="Installation Type: System"), False, False, 0)
 
         # Populate repository dropdown
-        available_repos = set()
-        repos = libflatpak_query.repolist(self.system_mode)
-        for repo in repos:
-            if not repo.get_disabled():
-                search_results = searcher.search_flatpak(details['id'], repo.get_name())
-                if search_results:
-                    available_repos.add(repo)
+        if button and app:
+            available_repos = set()
+            repos = libflatpak_query.repolist(self.system_mode)
+            for repo in repos:
+                if not repo.get_disabled():
+                    search_results = searcher.search_flatpak(id, repo.get_name())
+                    if search_results:
+                        available_repos.add(repo)
 
-        # Add repositories to dropdown
-        if available_repos:
-            repo_combo.remove_all()  # Clear any existing items
+            # Add repositories to dropdown
+            if available_repos:
+                repo_combo.remove_all()  # Clear any existing items
 
-            # Add all repositories
-            for repo in available_repos:
-                repo_combo.append_text(repo.get_name())
+                # Add all repositories
+                for repo in available_repos:
+                    repo_combo.append_text(repo.get_name())
 
-            # Only show dropdown if there are multiple repositories
-            if len(available_repos) >= 2:
-                # Remove and re-add with dropdown visible
-                content_area.pack_start(repo_combo, False, False, 0)
-                repo_combo.set_button_sensitivity(Gtk.SensitivityType.AUTO)
-                repo_combo.set_active(0)
+                # Only show dropdown if there are multiple repositories
+                if len(available_repos) >= 2:
+                    # Remove and re-add with dropdown visible
+                    content_area.pack_start(repo_combo, False, False, 0)
+                    repo_combo.set_button_sensitivity(Gtk.SensitivityType.AUTO)
+                    repo_combo.set_active(0)
+                else:
+                    # Remove and re-add without dropdown
+                    content_area.remove(repo_combo)
+                    repo_combo.set_active(0)
             else:
-                # Remove and re-add without dropdown
+                repo_combo.remove_all()  # Clear any existing items
+                repo_combo.append_text("No repositories available")
                 content_area.remove(repo_combo)
-                repo_combo.set_active(0)
+            # Show dialog
+            dialog.show_all()
         else:
-            repo_combo.remove_all()  # Clear any existing items
-            repo_combo.append_text("No repositories available")
-            content_area.remove(repo_combo)
-
-        # Show dialog
-        dialog.show_all()
+            # Show dialog
+            dialog.show_all()
 
         # Run dialog
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            selected_repo = repo_combo.get_active_text()
-
+            selected_repo = None
+            if button and app:
+                selected_repo = repo_combo.get_active_text()
             # Perform installation
             def perform_installation():
                 # Show waiting dialog
                 GLib.idle_add(self.show_waiting_dialog)
-
-                success, message = libflatpak_query.install_flatpak(app, selected_repo, self.system_mode)
-
-                # Update UI on main thread
+                if button and app:
+                    success, message = libflatpak_query.install_flatpak(app, selected_repo, self.system_mode)
+                else:
+                    success, message = libflatpak_query.install_flatpakref(app, self.system_mode)
                 GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
-
-            # Start spinner and begin installation
+                # Start spinner and begin installation
             thread = threading.Thread(target=perform_installation)
             thread.daemon = True  # Allow program to exit even if thread is still running
             thread.start()
@@ -1836,6 +1891,17 @@ class MainWindow(Gtk.Window):
             self.on_category_clicked('trending', 'collections')
 
 def main():
+    # Check for command line argument
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+        if arg.endswith('.flatpakref'):
+            # Create a temporary window just to handle the installation
+            app = MainWindow()
+            app.handle_flatpakref_file(arg)
+            # Keep the window open for 5 seconds to show the result
+            GLib.timeout_add_seconds(5, Gtk.main_quit)
+            Gtk.main()
+            return
     app = MainWindow()
     app.connect("destroy", Gtk.main_quit)
     app.show_all()

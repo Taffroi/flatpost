@@ -901,6 +901,41 @@ def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tupl
         return False, f"Installation failed: {e}"
     return True, f"Successfully installed {app.id}"
 
+def install_flatpakref(ref_file, system=False):
+    """Add a new repository using a .flatpakrepo file"""
+    # Get existing repositories
+    installation = get_installation(system)
+
+    if not ref_file.endswith('.flatpakref'):
+        return False, "Flatpak ref file path or URL must end with .flatpakref extension."
+
+    if not os.path.exists(ref_file):
+        return False, f"Flatpak ref file '{ref_file}' does not exist."
+
+    # Read the flatpakref file
+    try:
+        with open(ref_file, 'rb') as f:
+            repo_data = f.read()
+    except IOError as e:
+        return False, f"Failed to read flatpakref file: {str(e)}"
+
+    # Convert the data to GLib.Bytes
+    repo_bytes = GLib.Bytes.new(repo_data)
+
+    installation = get_installation(system)
+
+    transaction = Flatpak.Transaction.new_for_installation(installation)
+
+    # Add the install operation
+    transaction.add_install_flatpakref(repo_bytes)
+    # Run the transaction
+    try:
+        transaction.run()
+    except GLib.Error as e:
+        return False, f"Installation failed: {e}"
+    return True, f"Successfully installed {ref_file}"
+
+
 def remove_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple[bool, str]:
     """
     Remove a Flatpak package using transactions.
@@ -1240,17 +1275,25 @@ def handle_remove_repo(args):
     print(f"\nRepository removed successfully: {args.remove_repo}")
 
 def handle_install(args, searcher):
-    packagelist = searcher.search_flatpak(args.install, args.repo)
-    result_message = ""
-    for package in packagelist:
+    if args.install.endswith('.flatpakref'):
         try:
-            success, message = install_flatpak(package, args.repo, args.system)
+            success, message = install_flatpakref(args.install, args.system)
             result_message = f"{message}"
-            break
         except GLib.Error as e:
             result_message = f"Installation of {args.install} failed: {str(e)}"
-            pass
-    print(result_message)
+        print(result_message)
+    else:
+        packagelist = searcher.search_flatpak(args.install, args.repo)
+        result_message = ""
+        for package in packagelist:
+            try:
+                success, message = install_flatpak(package, args.repo, args.system)
+                result_message = f"{message}"
+                break
+            except GLib.Error as e:
+                result_message = f"Installation of {args.install} failed: {str(e)}"
+                pass
+        print(result_message)
 
 def handle_remove(args, searcher):
     packagelist = searcher.search_flatpak(args.remove, args.repo)
