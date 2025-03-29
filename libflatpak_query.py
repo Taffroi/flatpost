@@ -33,6 +33,7 @@
 # which have been modified and extended.
 
 
+from typing import cast
 import gi
 gi.require_version("AppStream", "1.0")
 gi.require_version("Flatpak", "1.0")
@@ -229,6 +230,110 @@ class AppstreamSearcher:
             }
         }
 
+        self.subcategory_groups = {
+            'audiovideo': {
+                'audiovideoediting': 'Audio & Video Editing',
+                'discburning': 'Disc Burning',
+                'midi': 'Midi',
+                'mixer': 'Mixer',
+                'player': 'Player',
+                'recorder': 'Recorder',
+                'sequencer': 'Sequencer',
+                'tuner': 'Tuner',
+                'tv': 'TV'
+            },
+            'development': {
+                'building': 'Building',
+                'database': 'Database',
+                'debugger': 'Debugger',
+                'guidesigner': 'GUI Designer',
+                'ide': 'IDE',
+                'profiling': 'Profiling',
+                'revisioncontrol': 'Revision Control',
+                'translation': 'Translation',
+                'webdevelopment': 'Web Development'
+            },
+            'game': {
+                'actiongame': 'Action Games',
+                'adventuregame': 'Adventure Games',
+                'arcadegame': 'Arcade Games',
+                'blocksgame': 'Blocks Games',
+                'boardgame': 'Board Games',
+                'cardgame': 'Card Games',
+                'emulator': 'Emulators',
+                'kidsgame': 'Kids\' Games',
+                'logicgame': 'Logic Games',
+                'roleplaying': 'Role Playing',
+                'shooter': 'Shooter',
+                'simulation': 'Simulation',
+                'sportsgame': 'Sports Games',
+                'strategygame': 'Strategy Games'
+            },
+            'graphics': {
+                '2dgraphics': '2D Graphics',
+                '3dgraphics': '3D Graphics',
+                'ocr': 'OCR',
+                'photography': 'Photography',
+                'publishing': 'Publishing',
+                'rastergraphics': 'Raster Graphics',
+                'scanning': 'Scanning',
+                'vectorgraphics': 'Vector Graphics',
+                'viewer': 'Viewer'
+            },
+            'network': {
+                'chat': 'Chat',
+                'email': 'Email',
+                'feed': 'Feed',
+                'filetransfer': 'File Transfer',
+                'hamradio': 'Ham Radio',
+                'instantmessaging': 'Instant Messaging',
+                'ircclient': 'IRC Client',
+                'monitor': 'Monitor',
+                'news': 'News',
+                'p2p': 'P2P',
+                'remoteaccess': 'Remote Access',
+                'telephony': 'Telephony',
+                'videoconference': 'Video Conference',
+                'webbrowser': 'Web Browser',
+                'webdevelopment': 'Web Development'
+            },
+            'office': {
+                'calendar': 'Calendar',
+                'chart': 'Chart',
+                'contactmanagement': 'Contact Management',
+                'database': 'Database',
+                'dictionary': 'Dictionary',
+                'email': 'Email',
+                'finance': 'Finance',
+                'presentation': 'Presentation',
+                'projectmanagement': 'Project Management',
+                'publishing': 'Publishing',
+                'spreadsheet': 'Spreadsheet',
+                'viewer': 'Viewer',
+                'wordprocessor': 'Word Processor'
+            },
+            'system': {
+                'emulator': 'Emulators',
+                'filemanager': 'File Manager',
+                'filesystem': 'Filesystem',
+                'filetools': 'File Tools',
+                'monitor': 'Monitor',
+                'security': 'Security',
+                'terminalemulator': 'Terminal Emulator'
+            },
+            'utility': {
+                'accessibility': 'Accessibility',
+                'archiving': 'Archiving',
+                'calculator': 'Calculator',
+                'clock': 'Clock',
+                'compression': 'Compression',
+                'filetools': 'File Tools',
+                'telephonytools': 'Telephony Tools',
+                'texteditor': 'Text Editor',
+                'texttools': 'Text Tools'
+            }
+        }
+
     def add_installation(self, inst: Flatpak.Installation):
         """Add enabled flatpak repositories from Flatpak.Installation"""
         remotes = inst.list_remotes()
@@ -331,11 +436,39 @@ class AppstreamSearcher:
 
         for app in apps:
             for category in app.categories:
-                if category not in categories:
-                    categories[category] = []
-                categories[category].append(app)
+                # Normalize category names to match our groups
+                normalized_category = category.lower()
+
+                # Map category to its group title
+                for group_name, categories_dict in self.category_groups.items():
+                    if normalized_category in categories_dict:
+                        display_category = categories_dict[normalized_category]
+                        break
+                else:
+                    display_category = normalized_category.title()
+
+                if display_category not in categories:
+                    categories[display_category] = []
+                categories[display_category].append(app)
 
         return categories
+
+    def get_subcategories_summary(self, repo_name=None) -> list[tuple[str, str, list[AppStreamPackage]]]:
+        """Get a summary of all apps grouped by category and subcategory."""
+        apps = self.get_all_apps(repo_name)
+        subcategories = []
+
+        # Process each category and its subcategories
+        for category, subcategories_dict in self.subcategory_groups.items():
+            for subcategory, title in subcategories_dict.items():
+                apps_in_subcategory = []
+                for app in apps:
+                    if category in app.categories and subcategory in app.categories:
+                        apps_in_subcategory.append(app)
+                if apps_in_subcategory:
+                    subcategories.append((category, subcategory, apps_in_subcategory))
+
+        return subcategories
 
     def get_installed_apps(self, system=False) -> list[tuple[str, str, str]]:
         """Get a list of all installed Flatpak applications with their repository source"""
@@ -454,6 +587,58 @@ class AppstreamSearcher:
 
         self.collection_results = updated_results
 
+    def fetch_flathub_subcategory_apps(self, category: str, subcategory: str) -> dict:
+        """Fetch applications from Flathub API for the specified category and subcategory."""
+        try:
+            # URL encode the category and subcategory to handle special characters
+            encoded_category = quote_plus(category)
+            encoded_subcategory = quote_plus(subcategory)
+
+            # Construct the API URL for subcategories
+            url = f"https://flathub.org/api/v2/collection/category/{encoded_category}/subcategories?subcategory={encoded_subcategory}"
+
+            response = requests.get(url, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                return data
+            else:
+                print(f"Failed to fetch apps: Status code {response.status_code}")
+                return None
+        except requests.RequestException as e:
+            print(f"Error fetching apps: {str(e)}")
+            return None
+
+    def save_subcategories_data(self, filename='subcategories_data.json'):
+        """Save all collected subcategories data to a JSON file."""
+        if not hasattr(self, 'subcategories_results') or not self.subcategories_results:
+            return
+
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(self.subcategories_results, f, indent=2, ensure_ascii=False)
+        except IOError as e:
+            print(f"Error saving subcategories data: {str(e)}")
+
+    def update_subcategories_data(self):
+        """Fetch and store data for all subcategories."""
+        if not hasattr(self, 'subcategories_results'):
+            self.subcategories_results = []
+
+        # Process each category and its subcategories
+        for category, subcategories in self.subcategory_groups.items():
+            for subcategory, title in subcategories.items():
+                api_data = self.fetch_flathub_subcategory_apps(category, subcategory)
+                if api_data:
+                    self.subcategories_results.append({
+                        'category': category,
+                        'subcategory': subcategory,
+                        'data': api_data
+                    })
+
+        # Save the collected data
+        self.save_subcategories_data()
+
     def refresh_local(self, system=False):
 
         # make sure to reset these to empty before refreshing.
@@ -502,6 +687,7 @@ class AppstreamSearcher:
         """Initialize empty lists for metadata storage."""
         self.category_results = []
         self.collection_results = []
+        self.subcategories_results = []
         self.installed_results = []
         self.updates_results = []
         self.all_apps = []
@@ -516,6 +702,16 @@ class AppstreamSearcher:
         except (IOError, json.JSONDecodeError) as e:
             logger.error(f"Error loading offline data: {str(e)}")
             return None, [], [], [], []
+
+        # Also load subcategories data
+        subcategories_path = "subcategories_data.json"
+        try:
+            with open(subcategories_path, 'r', encoding='utf-8') as f:
+                subcategories_data = json.load(f)
+                self.subcategories_results = subcategories_data
+        except (IOError, json.JSONDecodeError) as e:
+            logger.error(f"Error loading subcategories data: {str(e)}")
+            self.subcategories_results = []
 
     def _process_offline_data(self, collections_data):
         """Process cached collections data when offline."""
@@ -540,13 +736,14 @@ class AppstreamSearcher:
                 else:
                     self._process_system_category(searcher, category, system)
                 current_category += 1
+        if self._should_refresh():
+            self.update_subcategories_data()
 
         return self._get_current_results()
 
     def _process_category(self, searcher, category, current_category, total_categories):
         """Process a single category and retrieve its metadata."""
         json_path = "collections_data.json"
-
         try:
             with open(json_path, 'r', encoding='utf-8') as f:
                 collections_data = json.load(f)
@@ -554,7 +751,7 @@ class AppstreamSearcher:
         except (IOError, json.JSONDecodeError) as e:
             logger.error(f"Error loading collections data: {str(e)}")
 
-        if self._should_refresh_category(category):
+        if self._should_refresh():
             self._refresh_category_data(searcher, category)
 
         self.refresh_progress = (current_category / total_categories) * 100
@@ -568,12 +765,12 @@ class AppstreamSearcher:
                     search_result = self.search_flatpak(app_id, 'flathub')
                     self.collection_results.extend(search_result)
 
-    def _should_refresh_category(self, category):
+    def _should_refresh(self):
         """Check if category data needs refresh."""
         json_path = "collections_data.json"
         try:
             mod_time = os.path.getmtime(json_path)
-            return (time.time() - mod_time) > 24 * 3600
+            return (time.time() - mod_time) > 168 * 3600
         except OSError:
             return True
 
@@ -610,11 +807,14 @@ class AppstreamSearcher:
 
     def _get_current_results(self):
         """Return current metadata results."""
-        return (self.category_results,
-                self.collection_results,
-                self.installed_results,
-                self.updates_results,
-                self.all_apps)
+        return (
+            self.category_results,
+            self.collection_results,
+            self.subcategories_results,
+            self.installed_results,
+            self.updates_results,
+            self.all_apps
+        )
 
 def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple[bool, str]:
     """
@@ -867,6 +1067,8 @@ def main():
     parser.add_argument('--repo', help='Filter results to specific repository')
     parser.add_argument('--list-all', action='store_true', help='List all available apps')
     parser.add_argument('--categories', action='store_true', help='Show apps grouped by category')
+    parser.add_argument('--subcategories', action='store_true',
+                       help='Show apps grouped by subcategory')
     parser.add_argument('--list-installed', action='store_true',
                        help='List all installed Flatpak applications')
     parser.add_argument('--check-updates', action='store_true',
@@ -939,6 +1141,10 @@ def main():
 
     if args.categories:
         handle_categories(args, searcher)
+        return
+
+    if args.subcategories:
+        handle_subcategories(args, searcher)
         return
 
     if args.id:
@@ -1040,6 +1246,14 @@ def handle_categories(args, searcher):
     categories = searcher.get_categories_summary(args.repo)
     for category, apps in categories.items():
         print(f"\n{category.upper()}:")
+        for app in apps:
+            print(f"  - {app.name} ({app.id})")
+
+def handle_subcategories(args, searcher):
+    """Handle showing apps grouped by subcategory."""
+    subcategories = searcher.get_subcategories_summary(args.repo)
+    for category, subcategory, apps in subcategories:
+        print(f"\n{category.upper()} > {subcategory.upper()}:")
         for app in apps:
             print(f"  - {app.name} ({app.id})")
 

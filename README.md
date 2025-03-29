@@ -24,6 +24,7 @@ DONE:
 - Search function
 - System mode toggle
 - Update button functions
+- Implement subcategories
 
 TODO:
 - Refresh metadata button
@@ -31,7 +32,6 @@ TODO:
 - List Applications only checkbox
 - Sort runtimes from Desktop Apps
 - Package information page/section.
-- Implement subcategories
 - General GUI layout/theming improvements
 - add about section
 
@@ -52,6 +52,7 @@ options:
   --repo REPO           Filter results to specific repository
   --list-all            List all available apps
   --categories          Show apps grouped by category
+  --subcategories       Show apps grouped by subcategory
   --list-installed      List all installed Flatpak applications
   --check-updates       Check for available updates
   --list-repos          List all configured Flatpak repositories
@@ -75,6 +76,8 @@ Common CLI combinations:
 ./libflatpak_query.py --list-all --system
 ./libflatpak_query.py --categories
 ./libflatpak_query.py --categories --system
+./libflatpak_query.py --subcategories
+./libflatpak_query.py --subcategories --system
 ./libflatpak_query.py --list-installed
 ./libflatpak_query.py --list-installed --system
 ./libflatpak_query.py --check-updates

@@ -19,6 +19,7 @@ class MainWindow(Gtk.Window):
         # Store search results as an instance variable
         self.all_apps = []
         self.category_results = []  # Initialize empty list
+        self.subcategory_results = []  # Initialize empty list
         self.collection_results = []  # Initialize empty list
         self.installed_results = []  # Initialize empty list
         self.updates_results = []  # Initialize empty list
@@ -56,12 +57,11 @@ class MainWindow(Gtk.Window):
             }
         }
 
-
         # Define subcategories
         self.subcategory_groups = {
             'audiovideo': {
-                'audiovideoediting': 'AudioVideoEditing',
-                'discburning': 'DiscBurning',
+                'audiovideoediting': 'Audio & Video Editing',
+                'discburning': 'Disc Burning',
                 'midi': 'Midi',
                 'mixer': 'Mixer',
                 'player': 'Player',
@@ -74,80 +74,80 @@ class MainWindow(Gtk.Window):
                 'building': 'Building',
                 'database': 'Database',
                 'debugger': 'Debugger',
-                'guidesigner': 'GUIDesigner',
+                'guidesigner': 'GUI Designer',
                 'ide': 'IDE',
                 'profiling': 'Profiling',
-                'revisioncontrol': 'RevisionControl',
+                'revisioncontrol': 'Revision Control',
                 'translation': 'Translation',
-                'webdevelopment': 'WebDevelopment'
+                'webdevelopment': 'Web Development'
             },
             'game': {
-                'actiongame': 'ActionGame',
-                'adventuregame': 'AdventureGame',
-                'arcadegame': 'ArcadeGame',
-                'blocksgame': 'BlocksGame',
-                'boardgame': 'BoardGame',
-                'cardgame': 'CardGame',
-                'emulator': 'Emulator',
-                'kidsgame': 'KidsGame',
-                'logicgame': 'LogicGame',
-                'roleplaying': 'RolePlaying',
+                'actiongame': 'Action Games',
+                'adventuregame': 'Adventure Games',
+                'arcadegame': 'Arcade Games',
+                'blocksgame': 'Blocks Games',
+                'boardgame': 'Board Games',
+                'cardgame': 'Card Games',
+                'emulator': 'Emulators',
+                'kidsgame': 'Kids\' Games',
+                'logicgame': 'Logic Games',
+                'roleplaying': 'Role Playing',
                 'shooter': 'Shooter',
                 'simulation': 'Simulation',
-                'sportsgame': 'SportsGame',
-                'strategygame': 'StrategyGame'
+                'sportsgame': 'Sports Games',
+                'strategygame': 'Strategy Games'
             },
             'graphics': {
-                '2dgraphics': '2DGraphics',
-                '3dgraphics': '3DGraphics',
+                '2dgraphics': '2D Graphics',
+                '3dgraphics': '3D Graphics',
                 'ocr': 'OCR',
                 'photography': 'Photography',
                 'publishing': 'Publishing',
-                'rastergraphics': 'RasterGraphics',
+                'rastergraphics': 'Raster Graphics',
                 'scanning': 'Scanning',
-                'vectorgraphics': 'VectorGraphics',
+                'vectorgraphics': 'Vector Graphics',
                 'viewer': 'Viewer'
             },
             'network': {
                 'chat': 'Chat',
                 'email': 'Email',
                 'feed': 'Feed',
-                'filetransfer': 'FileTransfer',
-                'hamradio': 'HamRadio',
-                'instantmessaging': 'InstantMessaging',
-                'ircclient': 'IRCClient',
+                'filetransfer': 'File Transfer',
+                'hamradio': 'Ham Radio',
+                'instantmessaging': 'Instant Messaging',
+                'ircclient': 'IRC Client',
                 'monitor': 'Monitor',
                 'news': 'News',
                 'p2p': 'P2P',
-                'remoteaccess': 'RemoteAccess',
+                'remoteaccess': 'Remote Access',
                 'telephony': 'Telephony',
-                'videoconference': 'VideoConference',
-                'webbrowser': 'WebBrowser',
-                'webdevelopment': 'WebDevelopment'
+                'videoconference': 'Video Conference',
+                'webbrowser': 'Web Browser',
+                'webdevelopment': 'Web Development'
             },
             'office': {
                 'calendar': 'Calendar',
                 'chart': 'Chart',
-                'contactmanagement': 'ContactManagement',
+                'contactmanagement': 'Contact Management',
                 'database': 'Database',
                 'dictionary': 'Dictionary',
                 'email': 'Email',
                 'finance': 'Finance',
                 'presentation': 'Presentation',
-                'projectmanagement': 'ProjectManagement',
+                'projectmanagement': 'Project Management',
                 'publishing': 'Publishing',
                 'spreadsheet': 'Spreadsheet',
                 'viewer': 'Viewer',
-                'wordprocessor': 'WordProcessor'
+                'wordprocessor': 'Word Processor'
             },
             'system': {
-                'emulator': 'Emulator',
-                'filemanager': 'FileManager',
+                'emulator': 'Emulators',
+                'filemanager': 'File Manager',
                 'filesystem': 'Filesystem',
-                'filetools': 'FileTools',
+                'filetools': 'File Tools',
                 'monitor': 'Monitor',
                 'security': 'Security',
-                'terminalemulator': 'TerminalEmulator'
+                'terminalemulator': 'Terminal Emulator'
             },
             'utility': {
                 'accessibility': 'Accessibility',
@@ -155,14 +155,12 @@ class MainWindow(Gtk.Window):
                 'calculator': 'Calculator',
                 'clock': 'Clock',
                 'compression': 'Compression',
-                'filetools': 'FileTools',
-                'telephonytools': 'TelephonyTools',
-                'texteditor': 'TextEditor',
-                'texttools': 'TextTools'
+                'filetools': 'File Tools',
+                'telephonytools': 'Telephony Tools',
+                'texteditor': 'Text Editor',
+                'texttools': 'Text Tools'
             }
         }
-        # Where to get data for each subcategory:
-        # https://flathub.org/api/v2/collection/category/audiovideo/subcategories?subcategory=audiovideoediting
 
         # Add CSS provider for custom styling
         css_provider = Gtk.CssProvider()
@@ -252,6 +250,33 @@ class MainWindow(Gtk.Window):
                 margin: 2px;
                 padding: 2px 4px;
                 font-size: 0.8em;
+            }
+            .dark-category-button {
+                border: 0px;
+                padding: 6px;
+                margin: 0;
+                background: none;
+            }
+
+            .dark-category-button-active {
+                background-color: #18A3FF;
+                color: white;
+            }
+
+            .subcategories-scroll {
+                border: none;
+                background-color: transparent;
+                min-height: 40px;
+            }
+
+            .subcategories-scroll > GtkViewport {
+                border: none;
+                background-color: transparent;
+            }
+            .no-scroll-bars scrollbar {
+                min-width: 0px;
+                opacity: 0;
+                margin-top: -20px;
             }
         """)
 
@@ -406,8 +431,9 @@ class MainWindow(Gtk.Window):
         # Define thread target function
         def retrieve_metadata():
             try:
-                category_results, collection_results, installed_results, updates_results, all_apps = searcher.retrieve_metadata(self.system_mode)
+                category_results, collection_results, subcategory_results, installed_results, updates_results, all_apps = searcher.retrieve_metadata(self.system_mode)
                 self.category_results = category_results
+                self.category_results = subcategory_results
                 self.collection_results = collection_results
                 self.installed_results = installed_results
                 self.updates_results = updates_results
@@ -474,7 +500,7 @@ class MainWindow(Gtk.Window):
         self.left_panel = self.create_grouped_category_panel("Categories", self.category_groups)
 
         # Create right panel
-        self.right_panel = self.create_applications_panel("Applications", self.subcategory_groups)
+        self.right_panel = self.create_applications_panel("Applications")
 
         # Create panels container
         self.panels_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -639,7 +665,7 @@ class MainWindow(Gtk.Window):
         """Display search results in the right panel"""
         self.display_apps(apps)
 
-    def on_category_clicked(self, category, group):
+    def on_category_clicked(self, category, group, *args):
         # Remove active state from all widgets in all groups
         for group_name in self.category_widgets:
             for widget in self.category_widgets[group_name]:
@@ -651,85 +677,10 @@ class MainWindow(Gtk.Window):
             if widget.get_children()[0].get_label() == display_title:
                 widget.get_style_context().add_class("dark-category-button-active")
                 break
-
         self.current_page = category
         self.current_group = group
         self.update_category_header(category)
-
-        # Clear the right container
-        for child in self.right_container.get_children():
-            child.destroy()
-
-        # Recreate the right container
-        self.right_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        self.right_container.set_spacing(6)
-        self.right_container.set_border_width(6)
-
-        # Create container for applications
-        self.app_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.app_container.set_spacing(6)
-        self.app_container.set_border_width(6)
-
-        # Create subcategory container
-        self.subcat_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.subcat_container.set_spacing(6)
-        self.subcat_container.set_border_width(6)
-        self.subcat_container.set_size_request(200, -1)
-        self.subcat_container.set_hexpand(False)
-        self.subcat_container.set_vexpand(True)
-        self.subcat_container.set_halign(Gtk.Align.START)
-        self.subcat_container.set_valign(Gtk.Align.FILL)
-
-        # Create scrollable area for subcategories
-        scrolled_window_subcats = Gtk.ScrolledWindow()
-        scrolled_window_subcats.set_hexpand(False)
-        scrolled_window_subcats.set_vexpand(True)
-        scrolled_window_subcats.add(self.subcat_container)
-        scrolled_window_subcats.set_min_content_width(200)
-
-        # Create scrollable area for apps
-        scrolled_window_apps = Gtk.ScrolledWindow()
-        scrolled_window_apps.set_hexpand(True)
-        scrolled_window_apps.set_vexpand(True)
-        scrolled_window_apps.add(self.app_container)
-
-        # Add widgets to right container
-        if category in self.subcategory_groups:
-            self.right_container.pack_start(scrolled_window_subcats, False, False, 0)
-        self.right_container.pack_end(scrolled_window_apps, True, True, 0)
-
-        # Add right container to right panel
-        self.right_panel.pack_start(self.right_container, False, True, 0)
-
-        # Update subcategories
-        if category in self.subcategory_groups:
-
-            # Add subcategories
-            for subcategory, display_title in self.subcategory_groups[category].items():
-                # Create a clickable box for each category
-                subcategory_box = Gtk.EventBox()
-                subcategory_box.set_hexpand(True)
-                subcategory_box.set_halign(Gtk.Align.FILL)
-                subcategory_box.set_margin_top(2)
-                subcategory_box.set_margin_bottom(2)
-
-                # Create label for the category
-                subcategory_label = Gtk.Label(label=display_title)
-                subcategory_label.set_halign(Gtk.Align.START)
-                subcategory_label.set_hexpand(True)
-                subcategory_label.get_style_context().add_class("dark-category-button")
-
-                # Add label to the box
-                subcategory_box.add(subcategory_label)
-
-                # Connect click event
-                subcategory_box.connect("button-release-event",
-                                    lambda widget, event, cat=subcategory, grp=category:
-                                    self.on_category_clicked(cat, grp))
-
-                self.subcat_container.pack_start(subcategory_box, False, False, 0)
-
-        self.right_container.show_all()
+        self.update_subcategories_bar(category)
         self.show_category_apps(category)
 
     def refresh_current_page(self):
@@ -739,18 +690,26 @@ class MainWindow(Gtk.Window):
 
     def update_category_header(self, category):
         """Update the category header text based on the selected category."""
+        display_title = ""
         if category in self.category_groups['collections']:
             display_title = self.category_groups['collections'][category]
         elif category in self.category_groups['categories']:
             display_title = self.category_groups['categories'][category]
-        else:
-            display_title = category.capitalize()
-
+        else:            # Find the parent category and get the title
+            for parent_category, subcategories in self.subcategory_groups.items():
+                if category in subcategories:
+                    display_title = subcategories[category]
+                    break
+            if display_title == "":
+                # Fallback if category isn't found
+                display_title = category.capitalize()
         self.category_header.set_label(display_title)
 
-    def create_applications_panel(self, title, groups):
+    def create_applications_panel(self, title):
         # Create right panel
         self.right_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.right_panel.set_hexpand(True)  # Add this line
+        self.right_panel.set_vexpand(True)  # Add this line
 
         # Add category header
         self.category_header = Gtk.Label(label="")
@@ -759,99 +718,211 @@ class MainWindow(Gtk.Window):
         self.category_header.set_halign(Gtk.Align.START)
         self.right_panel.pack_start(self.category_header, False, False, 0)
 
-        self.right_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        self.right_container.set_spacing(6)
-        self.right_container.set_border_width(6)
+        # Create subcategories bar (initially hidden)
+        self.subcategories_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.subcategories_bar.set_hexpand(True)
+        self.subcategories_bar.set_spacing(6)
+        self.subcategories_bar.set_border_width(6)
+        #self.subcategories_bar.get_style_context().add_class("dark-header")
+        self.subcategories_bar.set_visible(False)
+        self.subcategories_bar.set_halign(Gtk.Align.FILL)  # Ensure full width
+        self.right_panel.pack_start(self.subcategories_bar, False, False, 0)
+
+        # Create scrollable area
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.set_hexpand(True)
+        scrolled_window.set_vexpand(True)
 
         # Create container for applications
-        self.app_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.app_container.set_spacing(6)
-        self.app_container.set_border_width(6)
+        self.right_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.right_container.set_spacing(6)
+        self.right_container.set_border_width(6)
+        self.right_container.set_hexpand(True)  # Add this line
+        self.right_container.set_vexpand(True)  # Add this line
 
-        # Create subcategory container
-        self.subcat_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.subcat_container.set_spacing(6)
-        self.subcat_container.set_border_width(6)
-        self.subcat_container.set_size_request(200, -1)
-        self.subcat_container.set_hexpand(False)
-        self.subcat_container.set_vexpand(True)
-        self.subcat_container.set_halign(Gtk.Align.START)  # Fill horizontally
-        self.subcat_container.set_valign(Gtk.Align.FILL)  # Align to top
-
-        # Dictionary to store category widgets
-        self.subcategory_widgets = {}
-
-        # Find the actual category name from the display title
-        current_category = self.current_page
-        print(current_category)
-
-        # Add group headers and categories
-        for group_name, subcategories in groups.items():
-            if group_name == current_category:
-                # Create a box for the header
-                header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-                header_box.get_style_context().add_class("dark-header")
-                header_box.set_hexpand(True)  # Make the box expand horizontally
-
-                # Create the label
-                group_header = Gtk.Label(label=group_name.upper())
-                group_header.get_style_context().add_class("title-2")
-                group_header.set_halign(Gtk.Align.START)
-
-                # Add the label to the box
-                header_box.pack_start(group_header, False, False, 0)
-
-                # Add the box to the container
-                self.subcat_container.pack_start(header_box, False, False, 0)
-
-                # Store widgets for this group
-                self.subcategory_widgets[group_name] = []
-                # Add categories in the group
-                for subcategory, display_title in subcategories.items():
-                    # Create a clickable box for each category
-                    subcategory_box = Gtk.EventBox()
-                    subcategory_box.set_hexpand(True)
-                    subcategory_box.set_halign(Gtk.Align.FILL)
-                    subcategory_box.set_margin_top(2)
-                    subcategory_box.set_margin_bottom(2)
-
-                    # Create label for the category
-                    subcategory_label = Gtk.Label(label=display_title)
-                    subcategory_label.set_halign(Gtk.Align.START)
-                    subcategory_label.set_hexpand(True)
-                    subcategory_label.get_style_context().add_class("dark-category-button")
-
-                    # Add label to the box
-                    subcategory_box.add(subcategory_label)
-
-                    # Connect click event
-                    subcategory_box.connect("button-release-event",
-                                    lambda widget, event, cat=subcategory, grp=group_name:
-                                    self.on_category_clicked(cat, grp))
-
-                    # Store widget in group
-                    self.subcategory_widgets[group_name].append(subcategory_box)
-                    self.subcat_container.pack_start(subcategory_box, False, False, 0)
-
-        # Create scrollable area for subcategories
-        scrolled_window_subcats = Gtk.ScrolledWindow()
-        scrolled_window_subcats.set_hexpand(False)
-        scrolled_window_subcats.set_vexpand(True)
-        scrolled_window_subcats.add(self.subcat_container)
-        scrolled_window_subcats.set_min_content_width(200)
-
-        # Create scrollable area for apps
-        scrolled_window_apps = Gtk.ScrolledWindow()
-        scrolled_window_apps.set_hexpand(True)
-        scrolled_window_apps.set_vexpand(True)
-        scrolled_window_apps.add(self.app_container)
-        # Only add subcategories if they exist for the current category
-        if current_category:
-            self.right_container.pack_start(scrolled_window_subcats, False, False, 0)
-        self.right_container.pack_end(scrolled_window_apps, True, True, 0)
-        self.right_panel.pack_start(self.right_container, False, True, 0)
-
+        scrolled_window.add(self.right_container)
+        self.right_panel.pack_start(scrolled_window, True, True, 0)
         return self.right_panel
+
+    def update_subcategories_bar(self, category):
+        """Update the subcategories bar based on the current category."""
+        # Clear existing subcategories
+        for child in self.subcategories_bar.get_children():
+            child.destroy()
+
+        # Create pan start button
+        pan_start = Gtk.Button()
+        pan_start_icon = Gio.Icon.new_for_string('pan-start-symbolic')
+        pan_start.set_image(Gtk.Image.new_from_gicon(pan_start_icon, Gtk.IconSize.BUTTON))
+        pan_start.get_style_context().add_class("dark-category-button")
+        pan_start.connect("clicked", self.on_pan_start)
+
+        # Create scrolled window
+        self.scrolled_window = Gtk.ScrolledWindow()
+        self.scrolled_window.set_hexpand(True)
+        self.scrolled_window.set_vexpand(False)
+        self.scrolled_window.set_size_request(-1, 40)
+        self.scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        self.scrolled_window.set_min_content_width(0)  # Allow shrinking below content size
+        self.scrolled_window.set_max_content_width(-1)  # No artificial width limit
+        self.scrolled_window.set_overlay_scrolling(False)
+        self.scrolled_window.get_style_context().add_class("no-scroll-bars")
+
+        # Create container for subcategories
+        container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        container.set_spacing(6)
+        container.set_border_width(6)
+        container.set_hexpand(True)
+        container.set_halign(Gtk.Align.CENTER)
+        container.set_homogeneous(False)
+
+        # Check if the category has subcategories
+        if category in self.subcategory_groups:
+            # Add subcategories
+            for subcategory, title in self.subcategory_groups[category].items():
+                # Create clickable box for subcategory
+                subcategory_box = Gtk.EventBox()
+                subcategory_box.set_hexpand(False)
+                subcategory_box.set_halign(Gtk.Align.START)
+                subcategory_box.set_margin_top(2)
+                subcategory_box.set_margin_bottom(2)
+
+                # Create label for subcategory
+                subcategory_label = Gtk.Label(label=title)
+                subcategory_label.set_halign(Gtk.Align.START)
+                subcategory_label.set_hexpand(False)
+                subcategory_label.get_style_context().add_class("dark-category-button")
+
+                # Add label to box
+                subcategory_box.add(subcategory_label)
+
+                # Connect click event
+                subcategory_box.connect("button-release-event",
+                                    lambda widget, event, subcat=subcategory:
+                                    self.on_subcategory_clicked(subcat))
+
+                # Store widget in group
+                container.pack_start(subcategory_box, False, False, 0)
+
+            # Add container to scrolled window
+            self.scrolled_window.add(container)
+
+            # Create pan end button
+            pan_end = Gtk.Button()
+            pan_end_icon = Gio.Icon.new_for_string('pan-end-symbolic')
+            pan_end.set_image(Gtk.Image.new_from_gicon(pan_end_icon, Gtk.IconSize.BUTTON))
+            pan_end.get_style_context().add_class("dark-category-button")
+            pan_end.connect("clicked", self.on_pan_end)
+
+            # Show the bar and force a layout update
+            self.subcategories_bar.get_style_context().add_class("dark-header")
+            self.subcategories_bar.set_visible(True)
+            self.subcategories_bar.pack_start(pan_start, False, False, 0)
+            self.subcategories_bar.pack_start(self.scrolled_window, True, True, 0)
+            self.subcategories_bar.pack_start(pan_end, False, False, 0)
+            #self.subcategories_bar.pack_start(container, True, True, 0)
+            self.subcategories_bar.queue_resize()
+            self.subcategories_bar.show_all()
+        else:
+            # Check if current category is a subcategory
+            is_subcategory = False
+            parent_category = None
+            for parent, subcategories in self.subcategory_groups.items():
+                if category in subcategories:
+                    is_subcategory = True
+                    parent_category = parent
+                    break
+
+            if is_subcategory:
+                # Add parent category and current subcategory
+                container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+                container.set_spacing(6)
+                container.set_border_width(6)
+                container.set_hexpand(True)
+                container.set_halign(Gtk.Align.CENTER)
+
+                # Create parent category box
+                parent_box = Gtk.EventBox()
+                parent_box.set_hexpand(False)
+                parent_box.set_halign(Gtk.Align.START)
+                parent_box.set_margin_top(2)
+                parent_box.set_margin_bottom(2)
+
+                # Create parent label
+                parent_label = Gtk.Label(label=self.category_groups['categories'][parent_category])
+                parent_label.set_halign(Gtk.Align.START)
+                parent_label.set_hexpand(False)
+                parent_label.get_style_context().add_class("dark-category-button")
+
+                # Add label to box
+                parent_box.add(parent_label)
+
+                # Connect click event
+                parent_box.connect("button-release-event",
+                                lambda widget, event, cat=parent_category, grp='categories':
+                                self.on_category_clicked(cat, grp))
+
+                # Add parent box to container
+                container.pack_start(parent_box, False, False, 0)
+
+                # Create current subcategory box
+                subcategory_box = Gtk.EventBox()
+                subcategory_box.set_hexpand(False)
+                subcategory_box.set_halign(Gtk.Align.START)
+                subcategory_box.set_margin_top(2)
+                subcategory_box.set_margin_bottom(2)
+
+                # Create subcategory label
+                subcategory_label = Gtk.Label(label=self.subcategory_groups[parent_category][category])
+                subcategory_label.set_halign(Gtk.Align.START)
+                subcategory_label.set_hexpand(False)
+                subcategory_label.get_style_context().add_class("dark-category-button")
+
+                # Add label to box
+                subcategory_box.add(subcategory_label)
+
+                # Connect click event
+                subcategory_box.connect("button-release-event",
+                                    lambda widget, event, subcat=category:
+                                    self.on_subcategory_clicked(subcat))
+
+                # Add subcategory box to container
+                container.pack_start(subcategory_box, False, False, 0)
+
+                # Add container to scrolled window
+                self.scrolled_window.add(container)
+                self.subcategories_bar.get_style_context().add_class("dark-header")
+                # Show the bar and force a layout update
+                self.subcategories_bar.set_visible(True)
+                self.subcategories_bar.pack_start(self.scrolled_window, True, True, 0)
+                #self.subcategories_bar.pack_start(container, True, True, 0)
+                self.subcategories_bar.queue_resize()
+                self.subcategories_bar.show_all()
+            else:
+                self.subcategories_bar.get_style_context().remove_class("dark-header")
+                # Hide the bar and force a layout update
+                self.subcategories_bar.set_visible(False)
+
+    def on_pan_start(self, button):
+        # Get the scrolled window's adjustment
+        adjustment = self.scrolled_window.get_hadjustment()
+        # Scroll to the left by a page
+        adjustment.set_value(adjustment.get_value() - adjustment.get_page_size())
+
+    def on_pan_end(self, button):
+        # Get the scrolled window's adjustment
+        adjustment = self.scrolled_window.get_hadjustment()
+        # Scroll to the right by a page
+        adjustment.set_value(adjustment.get_value() + adjustment.get_page_size())
+
+    def on_subcategory_clicked(self, subcategory):
+        """Handle subcategory button clicks."""
+        # Update the current page to the subcategory
+        self.current_page = subcategory
+        self.current_group = 'subcategories'
+        self.update_category_header(subcategory)
+        self.update_subcategories_bar(subcategory)
+        self.show_category_apps(subcategory)
 
     # Create and connect buttons
     def create_button(self, callback, app, label=None, condition=None):
@@ -919,7 +990,7 @@ class MainWindow(Gtk.Window):
 
         if 'repositories' in category:
             # Clear existing content
-            for child in self.app_container.get_children():
+            for child in self.right_container.get_children():
                 child.destroy()
 
             # Create header bar
@@ -953,7 +1024,7 @@ class MainWindow(Gtk.Window):
             header_bar.pack_end(right_label, False, False, 0)
 
             # Add header bar to container
-            self.app_container.pack_start(header_bar, False, False, 0)
+            self.right_container.pack_start(header_bar, False, False, 0)
 
             # Get list of repositories
             repos = libflatpak_query.repolist(self.system_mode)
@@ -1034,13 +1105,11 @@ class MainWindow(Gtk.Window):
 
             # Add container to scrolled window
             scrolled_window.add(repo_container)
-            self.app_container.pack_start(scrolled_window, True, True, 0)
+            self.right_container.pack_start(scrolled_window, True, True, 0)
 
-            self.app_container.show_all()
+            self.right_container.show_all()
             return
-        self.current_page = category
         self.display_apps(apps)
-        self.subcat_container.show_all()
 
     def create_scaled_icon(self, icon, is_themed=False):
         if is_themed:
@@ -1061,7 +1130,7 @@ class MainWindow(Gtk.Window):
         return Gtk.Image.new_from_pixbuf(scaled_pb)
 
     def display_apps(self, apps):
-        for child in self.app_container.get_children():
+        for child in self.right_container.get_children():
             child.destroy()
         # Create a dictionary to group apps by ID
         apps_by_id = {}
@@ -1231,10 +1300,10 @@ class MainWindow(Gtk.Window):
             # Add to container
             app_container.pack_start(icon_box, False, False, 0)
             app_container.pack_start(right_box, True, True, 0)
-            self.app_container.pack_start(app_container, False, False, 0)
-            self.app_container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+            self.right_container.pack_start(app_container, False, False, 0)
+            self.right_container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
-        self.app_container.show_all()  # Show all widgets after adding them
+        self.right_container.show_all()  # Show all widgets after adding them
 
     def show_waiting_dialog(self, message="Please wait while task is running..."):
         """Show a modal dialog with a spinner"""
