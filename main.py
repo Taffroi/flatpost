@@ -286,6 +286,18 @@ class MainWindow(Gtk.Window):
                 opacity: 0;
                 margin-top: -20px;
             }
+            .app-scroll-window {
+                border: 0px;
+                margin: 0px;
+                padding-right: 20px;
+                background: none;
+            }
+            .app-window {
+                border: 0px;
+                margin: 0px;
+                padding-right: 20px;
+                background: none;
+            }
         """)
 
         # Add CSS provider to the default screen
@@ -832,6 +844,7 @@ class MainWindow(Gtk.Window):
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_hexpand(True)
         scrolled_window.set_vexpand(True)
+        scrolled_window.get_style_context().add_class("app-scproll-window")
 
         # Create container for applications
         self.right_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -839,7 +852,7 @@ class MainWindow(Gtk.Window):
         self.right_container.set_border_width(6)
         self.right_container.set_hexpand(True)  # Add this line
         self.right_container.set_vexpand(True)  # Add this line
-
+        self.right_container.get_style_context().add_class("app-scroll-window")
         scrolled_window.add(self.right_container)
         self.right_panel.pack_start(scrolled_window, True, True, 0)
         return self.right_panel
