@@ -42,6 +42,7 @@ TODO:
 - Implement global option to allow any flatpak install desktop_app kind to access user home directory (this will be good for new users for things like discord and file sharing)
 - Package information page/section.
 - add about section
+- permission management GUI + backend
 - Update management GUI (individual apps can already be updated)
 - General GUI layout/theming improvements
 
