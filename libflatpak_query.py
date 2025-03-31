@@ -1151,6 +1151,205 @@ def download_repo(url):
     except IOError as e:
         raise argparse.ArgumentTypeError(f"Failed to save repository file: {str(e)}")
 
+def get_metadata_path(app_id: str, system=False) -> str:
+    installation = get_installation(system)
+    metadata_path = ""
+    # Get the application's metadata file
+    app_path = installation.get_current_installed_app(app_id).get_deploy_dir()
+    if not app_path:
+        print(f"Application {app_id} not found")
+        return metadata_path
+    metadata_path = app_path + "/metadata"
+    #print(metadata_path)
+    if not os.path.exists(metadata_path):
+        print(f"Metadata file not found for {app_id}")
+        return metadata_path
+    return metadata_path
+
+def get_perm_key_file(app_id: str, system=False) -> GLib.KeyFile:
+    metadata_path = get_metadata_path(app_id, system)
+    # Create a new KeyFile object
+    key_file = GLib.KeyFile()
+
+    # Read the existing metadata
+    try:
+        key_file.load_from_file(metadata_path, GLib.KeyFileFlags.NONE)
+    except GLib.Error as e:
+        print(f"Failed to read metadata file: {str(e)}")
+        return None
+
+    return key_file
+
+def add_file_permissions(app_id: str, path: str, system=False) -> tuple[bool, str]:
+    """
+    Add filesystem permissions to a Flatpak application.
+
+    Args:
+        app_id (str): The ID of the Flatpak application
+        path (str): The path to grant access to. Can be:
+            - "home" for home directory access
+            - "/path/to/directory" for custom directory access
+        system (bool): Whether to modify system-wide or user installation
+
+    Returns:
+        tuple[bool, str]: (success, message)
+    """
+
+    try:
+        key_file = get_perm_key_file(app_id, system)
+        metadata_path = get_metadata_path(app_id, system)
+
+        # Handle special case for home directory
+        if path.lower() == "host":
+            filesystem_path = "host"
+        elif path.lower() == "host-os":
+            filesystem_path = "host-os"
+        elif path.lower() == "host-etc":
+            filesystem_path = "host-etc"
+        elif path.lower() == "home":
+            filesystem_path = "home"
+        else:
+            # Ensure path do not ends with a trailing slash
+            filesystem_path = path.rstrip('/')
+
+        # Get existing filesystem paths
+        existing_paths = key_file.get_string("Context", "filesystems")
+        if existing_paths is None:
+            # If no filesystems entry exists, create it
+            key_file.set_string("Context", "filesystems", filesystem_path)
+        else:
+            # Split existing paths and check if our path already exists
+            existing_paths_list = existing_paths.split(';')
+
+            # Normalize paths for comparison (remove trailing slashes, convert to absolute paths)
+            normalized_new_path = os.path.abspath(filesystem_path.rstrip('/'))
+            normalized_existing_paths = [os.path.abspath(p.rstrip('/')) for p in existing_paths_list]
+
+            # Only add if the path doesn't already exist
+            if normalized_new_path not in normalized_existing_paths:
+                key_file.set_string("Context", "filesystems",
+                                  existing_paths + filesystem_path + ";")
+
+        # Write the modified metadata back
+        try:
+            key_file.save_to_file(metadata_path)
+        except GLib.Error as e:
+            return False, f"Failed to save metadata file: {str(e)}"
+
+        return True, f"Successfully granted access to {path} for {app_id}"
+
+    except GLib.Error as e:
+        return False, f"Failed to modify permissions: {str(e)}"
+
+
+def remove_file_permissions(app_id: str, path: str, system=False) -> tuple[bool, str]:
+    """
+    Remove filesystem permissions from a Flatpak application.
+
+    Args:
+        app_id (str): The ID of the Flatpak application
+        path (str): The path to revoke access to. Can be:
+            - "home" for home directory access
+            - "/path/to/directory" for custom directory access
+        system (bool): Whether to modify system-wide or user installation
+
+    Returns:
+        tuple[bool, str]: (success, message)
+    """
+    try:
+        key_file = get_perm_key_file(app_id, system)
+        metadata_path = get_metadata_path(app_id, system)
+
+        # Handle special case for home directory
+        if path.lower() == "host":
+            filesystem_path = "host"
+        elif path.lower() == "host-os":
+            filesystem_path = "host-os"
+        elif path.lower() == "host-etc":
+            filesystem_path = "host-etc"
+        elif path.lower() == "home":
+            filesystem_path = "home"
+        else:
+            # Ensure path do not ends with a trailing slash
+            filesystem_path = path.rstrip('/')
+
+        # Get existing filesystem paths
+        existing_paths = key_file.get_string("Context", "filesystems")
+
+        if existing_paths is None:
+            return True, f"No filesystem permissions to remove for {app_id}"
+
+        # Split existing paths and normalize them for comparison
+        existing_paths_list = existing_paths.split(';')
+        normalized_new_path = os.path.abspath(filesystem_path.rstrip('/'))
+        normalized_existing_paths = [os.path.abspath(p.rstrip('/')) for p in existing_paths_list]
+
+        # Only remove if the path exists
+        if normalized_new_path not in normalized_existing_paths:
+            return True, f"No permission found for {path} in {app_id}"
+
+        # Remove the path from the existing paths
+        filtered_paths_list = [p for p in existing_paths_list
+                             if os.path.abspath(p.rstrip('/')) != normalized_new_path]
+
+        # Handle case where all permissions would be removed
+        if not filtered_paths_list:
+            key_file.remove_key("Context", "filesystems")
+        else:
+            # Join remaining paths back together
+            new_permissions = ";".join(filtered_paths_list)
+            key_file.set_string("Context", "filesystems", new_permissions)
+
+        # Write the modified metadata back
+        try:
+            key_file.save_to_file(metadata_path)
+        except GLib.Error as e:
+            return False, f"Failed to save metadata file: {str(e)}"
+
+        return True, f"Successfully removed access to {path} for {app_id}"
+
+    except GLib.Error as e:
+        return False, f"Failed to modify permissions: {str(e)}"
+
+def list_file_perms(app_id: str, system=False) -> tuple[bool, dict[str, list[str]]]|tuple[bool, dict[str, list[str]]]:
+    """
+    List filesystem permissions for a Flatpak application.
+
+    Args:
+        app_id (str): The ID of the Flatpak application
+        system (bool): Whether to check system-wide or user installation
+
+    Returns:
+        tuple[bool, dict[str, list[str]]]: (success, permissions_dict)
+            permissions_dict contains:
+                - 'paths': list of filesystem paths
+                - 'special_paths': list of special paths (home, host, etc.)
+    """
+    try:
+        key_file = get_perm_key_file(app_id, system)
+
+        # Initialize result dictionary
+        result = {
+            "paths": [],
+            "special_paths": []
+        }
+
+        # Get existing filesystem paths
+        existing_paths = key_file.get_string("Context", "filesystems")
+        if existing_paths:
+            # Split and clean the paths
+            paths_list = [p.strip() for p in existing_paths.split(';')]
+
+            # Separate special paths from regular ones
+            for path in paths_list:
+                if path in ["home", "host", "host-os", "host-etc"]:
+                    result["special_paths"].append(path)
+                else:
+                    result["paths"].append(path)
+
+        return True, result
+    except GLib.Error:
+        return False, {"paths": [], "special_paths": []}
 
 def main():
     parser = argparse.ArgumentParser(description='Search Flatpak packages')
@@ -1182,7 +1381,12 @@ def main():
     parser.add_argument('--system', action='store_true', help='Install as system instead of user')
     parser.add_argument('--refresh', action='store_true', help='Install as system instead of user')
     parser.add_argument('--refresh-local', action='store_true', help='Install as system instead of user')
-
+    parser.add_argument('--add-file-perms', type=str, metavar='PATH',
+                        help='Add filesystem access permissions to an app. Use "home" for home directory or "/path/to/directory" for custom paths')
+    parser.add_argument('--remove-file-perms', type=str, metavar='PATH',
+                        help='Add filesystem access permissions to an app. Use "home" for home directory or "/path/to/directory" for custom paths')
+    parser.add_argument('--list-file-perms', action='store_true',
+                       help='List configured Flatpak file permissions for an app')
     args = parser.parse_args()
 
     # Handle repository operations
@@ -1239,7 +1443,21 @@ def main():
         return
 
     if args.id:
-        handle_search(args, searcher)
+        if args.add_file_perms:
+            handle_add_file_perms(args, searcher)
+            return
+        if args.remove_file_perms:
+            handle_remove_file_perms(args, searcher)
+            return
+        if args.list_file_perms:
+            handle_list_file_perms(args, searcher)
+            return
+        else:
+            handle_search(args, searcher)
+        return
+
+    if args.add_file_perms:
+        handle_file_perms(args, searcher)
         return
 
     print("Missing options. Use -h for help.")
@@ -1355,6 +1573,27 @@ def handle_subcategories(args, searcher):
         print(f"\n{category.upper()} > {subcategory.upper()}:")
         for app in apps:
             print(f"  - {app.name} ({app.id})")
+
+def handle_add_file_perms(args, searcher):
+    try:
+        success, message = add_file_permissions(args.id, args.add_file_perms, args.system)
+        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
+def handle_remove_file_perms(args, searcher):
+    try:
+        success, message = remove_file_permissions(args.id, args.remove_file_perms, args.system)
+        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
+def handle_list_file_perms(args, searcher):
+    try:
+        success, message = list_file_perms(args.id, args.system)
+        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
 
 def handle_search(args, searcher):
     if args.repo:
