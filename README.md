@@ -53,8 +53,13 @@ Shop: `./main.py`
 CLI:
 ```
 ./libflatpak_query.py -h
-usage: libflatpak_query.py [-h] [--id ID] [--repo REPO] [--list-all] [--categories] [--list-installed] [--check-updates] [--list-repos] [--add-repo REPO_FILE] [--remove-repo REPO_NAME] [--toggle-repo ENABLE/DISABLE] [--install APP_ID] [--remove APP_ID] [--update APP_ID] [--system] [--refresh]
-                           [--refresh-local]
+usage: libflatpak_query.py [-h] [--id ID] [--repo REPO] [--list-all] [--categories] [--subcategories] [--list-installed] [--check-updates] [--list-repos] [--add-repo REPO_FILE]
+                           [--remove-repo REPO_NAME] [--toggle-repo ENABLE/DISABLE] [--install APP_ID] [--remove APP_ID] [--update APP_ID] [--system] [--refresh] [--refresh-local]
+                           [--add-file-perms PATH] [--remove-file-perms PATH] [--list-file-perms] [--list-other-perm-toggles PERM_NAME] [--toggle-other-perms ENABLE/DISABLE]
+                           [--perm-type PERM_TYPE] [--perm-option PERM_OPTION] [--list-other-perm-values PERM_NAME] [--add-other-perm-values TYPE] [--remove-other-perm-values TYPE]
+                           [--perm-value VALUE] [--override] [--global-add-file-perms PATH] [--global-remove-file-perms PATH] [--global-list-file-perms]
+                           [--global-list-other-perm-toggles PERM_NAME] [--global-toggle-other-perms ENABLE/DISABLE] [--global-list-other-perm-values PERM_NAME]
+                           [--global-add-other-perm-values TYPE] [--global-remove-other-perm-values TYPE]
 
 Search Flatpak packages
 
@@ -77,13 +82,52 @@ options:
   --remove APP_ID       Remove a Flatpak package
   --update APP_ID       Update a Flatpak package
   --system              Install as system instead of user
+  --refresh             Install as system instead of user
+  --refresh-local       Install as system instead of user
+  --add-file-perms PATH
+                        Add file permissions to an app (e.g. any defaults: host, host-os, host-etc, home, or "/path/to/directory" for custom paths)
+  --remove-file-perms PATH
+                        Remove file permissions from an app (e.g. any defaults: host, host-os, host-etc, home, or "/path/to/directory" for custom paths)
+  --list-file-perms     List configured file permissions for an app
+  --list-other-perm-toggles PERM_NAME
+                        List configured other permission toggles for an app (e.g. "shared", "sockets", "devices", "features", "persistent")
+  --toggle-other-perms ENABLE/DISABLE
+                        Toggle other permissions on/off (True/False)
+  --perm-type PERM_TYPE
+                        Type of permission to toggle (shared, sockets, devices, features)
+  --perm-option PERM_OPTION
+                        Specific permission option to toggle (e.g. network, ipc)
+  --list-other-perm-values PERM_NAME
+                        List configured other permission group values for an app (e.g. "environment", "session_bus", "system_bus")
+  --add-other-perm-values TYPE
+                        Add a permission value (e.g. "environment", "session_bus", "system_bus")
+  --remove-other-perm-values TYPE
+                        Remove a permission value (e.g. "environment", "session_bus", "system_bus")
+  --perm-value VALUE    The complete permission value to add or remove (e.g. "XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons")
+  --override            Set global permission override instead of per-application
+  --global-add-file-perms PATH
+                        Add file permissions to an app (e.g. any defaults: host, host-os, host-etc, home, or "/path/to/directory" for custom paths)
+  --global-remove-file-perms PATH
+                        Remove file permissions from an app (e.g. any defaults: host, host-os, host-etc, home, or "/path/to/directory" for custom paths)
+  --global-list-file-perms
+                        List configured file permissions for an app
+  --global-list-other-perm-toggles PERM_NAME
+                        List configured other permission toggles for an app (e.g. "shared", "sockets", "devices", "features", "persistent")
+  --global-toggle-other-perms ENABLE/DISABLE
+                        Toggle other permissions on/off (True/False)
+  --global-list-other-perm-values PERM_NAME
+                        List configured other permission group values for an app (e.g. "environment", "session_bus", "system_bus")
+  --global-add-other-perm-values TYPE
+                        Add a permission value (e.g. "environment", "session_bus", "system_bus")
+  --global-remove-other-perm-values TYPE
+                        Remove a permission value (e.g. "environment", "session_bus", "system_bus")
 ```
 
 Common CLI combinations:
 ```
-./libflatpak_query.py --id net.lutris.Lutris
-./libflatpak_query.py --id net.lutris.Lutris --repo flatpak beta
-./libflatpak_query.py --id net.lutris.Lutris --repo flatpak-beta --system
+./libflatpak_query.py --id <app id>
+./libflatpak_query.py --id <app id> --repo flatpak beta
+./libflatpak_query.py --id <app id> --repo flatpak-beta --system
 ./libflatpak_query.py --list-all
 ./libflatpak_query.py --list-all --system
 ./libflatpak_query.py --categories
@@ -109,4 +153,23 @@ Common CLI combinations:
 ./libflatpak_query.py --remove <app id> --system
 ./libflatpak_query.py --update <app id>
 ./libflatpak_query.py --update <app id> --system
+./libflatpak_query.py --id <app id> --list-file-perms
+./libflatpak_query.py --id <app id> --add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
+./libflatpak_query.py --id <app id> --remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
+./libflatpak_query.py --id <app id> --list-other-perm-toggles <shared, sockets, devices, features, persistent>
+./libflatpak_query.py --id <app id> --toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
+./libflatpak_query.py --id <app id> --toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
+./libflatpak_query.py --id <app id> --list-other-perm-values <environment, session_bus, system_bus>
+./libflatpak_query.py --id <app id> --add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
+./libflatpak_query.py --id <app id> --remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
+./libflatpak_query.py --override --global-list-file-perms
+./libflatpak_query.py --override --global-add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
+./libflatpak_query.py --override --global-remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
+./libflatpak_query.py --override --global-list-other-perm-toggles <shared, sockets, devices, features, persistent>
+./libflatpak_query.py --override --global-toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
+./libflatpak_query.py --override --global-toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
+./libflatpak_query.py --override --global-list-other-perm-values <environment, session_bus, system_bus>
+./libflatpak_query.py --override --global-add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
+./libflatpak_query.py --override --global-remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
 ```
+
