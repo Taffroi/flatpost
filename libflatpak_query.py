@@ -1151,23 +1151,40 @@ def download_repo(url):
     except IOError as e:
         raise argparse.ArgumentTypeError(f"Failed to save repository file: {str(e)}")
 
-def get_metadata_path(app_id: str, system=False) -> str:
-    installation = get_installation(system)
+def get_metadata_path(app_id: str | None, override=False, system=False) -> str:
     metadata_path = ""
-    # Get the application's metadata file
-    app_path = installation.get_current_installed_app(app_id).get_deploy_dir()
-    if not app_path:
-        print(f"Application {app_id} not found")
-        return metadata_path
-    metadata_path = app_path + "/metadata"
-    #print(metadata_path)
+    if override:
+        if system:
+            metadata_path = "/var/lib/flatpak/overrides/global"
+            if not os.path.exists(metadata_path):
+                os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
+                with open(metadata_path, 'w') as f:
+                        pass
+
+        else:
+            home_dir = os.path.expanduser("~")
+            metadata_path = f"{home_dir}/.local/share/flatpak/overrides/global"
+            if not os.path.exists(metadata_path):
+                os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
+                with open(metadata_path, 'w') as f:
+                        pass
+
+    elif app_id:
+            # Get the application's metadata file
+            installation = get_installation(system)
+            app_path = installation.get_current_installed_app(app_id).get_deploy_dir()
+            if not app_path:
+                print(f"Application {app_id} not found")
+                return metadata_path
+            metadata_path = app_path + "/metadata"
+
     if not os.path.exists(metadata_path):
         print(f"Metadata file not found for {app_id}")
         return metadata_path
     return metadata_path
 
-def get_perm_key_file(app_id: str, system=False) -> GLib.KeyFile:
-    metadata_path = get_metadata_path(app_id, system)
+def get_perm_key_file(app_id: str | None,  override=False, system=False) -> GLib.KeyFile:
+    metadata_path = get_metadata_path(app_id, override, system)
     # Create a new KeyFile object
     key_file = GLib.KeyFile()
 
@@ -1211,6 +1228,17 @@ def add_file_permissions(app_id: str, path: str, system=False) -> tuple[bool, st
             # Ensure path do not ends with a trailing slash
             filesystem_path = path.rstrip('/')
 
+        if not key_file.has_group("Context"):
+            key_file.set_string("Context", "filesystems", "")
+
+        # Now get the keys
+        context_keys = key_file.get_keys("Context")
+
+        # Check if perm_type exists in the section
+        if "filesystems" not in str(context_keys):
+            # Create the key with an empty string
+            key_file.set_string("Context", "filesystems", "")
+
         # Get existing filesystem paths
         existing_paths = key_file.get_string("Context", "filesystems")
         if existing_paths is None:
@@ -1231,7 +1259,7 @@ def add_file_permissions(app_id: str, path: str, system=False) -> tuple[bool, st
 
         # Write the modified metadata back
         try:
-            key_file.save_to_file(get_metadata_path(app_id, system))
+            key_file.save_to_file(get_metadata_path(app_id, False, system))
         except GLib.Error as e:
             return False, f"Failed to save metadata file: {str(e)}"
 
@@ -1290,17 +1318,17 @@ def remove_file_permissions(app_id: str, path: str, system=False) -> tuple[bool,
         filtered_paths_list = [p for p in existing_paths_list
                              if os.path.abspath(p.rstrip('/')) != normalized_new_path]
 
-        # Handle case where all permissions would be removed
-        if not filtered_paths_list:
-            key_file.remove_key("Context", "filesystems")
-        else:
-            # Join remaining paths back together
-            new_permissions = ";".join(filtered_paths_list)
+        # Join remaining paths back together
+        new_permissions = ";".join(filtered_paths_list)
+        if new_permissions:
+        # Save changes
             key_file.set_string("Context", "filesystems", new_permissions)
+        else:
+            key_file.remove_key("Context", "filesystems")
 
         # Write the modified metadata back
         try:
-            key_file.save_to_file(get_metadata_path(app_id, system))
+            key_file.save_to_file(get_metadata_path(app_id, False, system))
         except GLib.Error as e:
             return False, f"Failed to save metadata file: {str(e)}"
 
@@ -1416,11 +1444,26 @@ def toggle_other_perms(app_id: str, perm_type: str, option: str, enable: bool, s
         return False, f"Failed to get permissions for {app_id}"
 
     try:
-        # Get existing permissions string
+        perms_list = []
+        # Get all keys in the Context section
+        # Check if Context section exists
+        if not key_file.has_group("Context"):
+            key_file.set_string("Context", perm_type, "")
+
+        # Now get the keys
+        context_keys = key_file.get_keys("Context")
+
+        # Check if perm_type exists in the section
+        if perm_type not in str(context_keys):
+            # Create the key with an empty string
+            key_file.set_string("Context", perm_type, "")
+
+        # Get the existing permissions
         existing_perms = key_file.get_string("Context", perm_type)
 
-        # Split into individual permissions
-        perms_list = [perm.strip() for perm in existing_perms.split(';') if perm.strip()]
+        if existing_perms:
+            # Split into individual permissions
+            perms_list = [perm.strip() for perm in existing_perms.split(';') if perm.strip()]
 
         # Toggle permission
         if enable:
@@ -1434,8 +1477,11 @@ def toggle_other_perms(app_id: str, perm_type: str, option: str, enable: bool, s
         new_perms = ";".join(perms_list)
 
         # Save changes
-        key_file.set_string("Context", perm_type, new_perms)
-        key_file.save_to_file(get_metadata_path(app_id, system))
+        if new_perms:
+            key_file.set_string("Context", perm_type, new_perms)
+        else:
+            key_file.remove_key("Context", perm_type)
+        key_file.save_to_file(get_metadata_path(app_id, False, system))
 
         return True, f"Successfully {'enabled' if enable else 'disabled'} {option} for {app_id}"
 
@@ -1531,15 +1577,11 @@ def add_permission_value(app_id: str, perm_type: str, value: str, system=False) 
 
         key, val = parts
 
-        # Create section if it doesn't exist
-        if not key_file.has_group(perm_type):
-            key_file.add_group(perm_type)
-
         # Set the value
         key_file.set_string(perm_type, key, val)
 
         # Save the changes
-        key_file.save_to_file(get_metadata_path(app_id, system))
+        key_file.save_to_file(get_metadata_path(app_id, False, system))
 
         return True, f"Successfully added {value} to {perm_type} section"
     except GLib.Error as e:
@@ -1586,11 +1628,449 @@ def remove_permission_value(app_id: str, perm_type: str, value: str, system=Fals
         key_file.remove_key(perm_type, key)
 
         # Save the changes
-        key_file.save_to_file(get_metadata_path(app_id, system))
+        key_file.save_to_file(get_metadata_path(app_id, False, system))
 
         return True, f"Successfully removed {value} from {perm_type} section"
     except GLib.Error as e:
         return False, f"Error removing permission: {str(e)}"
+
+def global_add_file_permissions(path: str, override=True, system=False) -> tuple[bool, str]:
+    """
+    Add filesystem permissions to all Flatpak applications globally.
+
+    Args:
+        path (str): The path to grant access to. Can be:
+            - "home" for home directory access
+            - "/path/to/directory" for custom directory access
+        override (bool): Whether to use global metadata file instead of per-app.
+        system (bool): Whether to modify system-wide or user installation
+
+    Returns:
+        tuple[bool, str]: (success, message)
+    """
+
+    try:
+        key_file = get_perm_key_file(None, override, system)
+
+        # Handle special case for home directory
+        if path.lower() == "host":
+            filesystem_path = "host"
+        elif path.lower() == "host-os":
+            filesystem_path = "host-os"
+        elif path.lower() == "host-etc":
+            filesystem_path = "host-etc"
+        elif path.lower() == "home":
+            filesystem_path = "home"
+        else:
+            # Ensure path do not ends with a trailing slash
+            filesystem_path = path.rstrip('/')
+
+        if not key_file.has_group("Context"):
+            key_file.set_string("Context", "filesystems", "")
+
+        # Now get the keys
+        context_keys = key_file.get_keys("Context")
+
+        # Check if perm_type exists in the section
+        if "filesystems" not in str(context_keys):
+            # Create the key with an empty string
+            key_file.set_string("Context", "filesystems", "")
+
+        # Get existing filesystem paths
+        existing_paths = key_file.get_string("Context", "filesystems")
+        if existing_paths is None:
+            # If no filesystems entry exists, create it
+            key_file.set_string("Context", "filesystems", filesystem_path)
+        else:
+            # Split existing paths and check if our path already exists
+            existing_paths_list = existing_paths.split(';')
+
+            # Normalize paths for comparison (remove trailing slashes, convert to absolute paths)
+            normalized_new_path = os.path.abspath(filesystem_path.rstrip('/'))
+            normalized_existing_paths = [os.path.abspath(p.rstrip('/')) for p in existing_paths_list]
+
+            # Only add if the path doesn't already exist
+            if normalized_new_path not in normalized_existing_paths:
+                key_file.set_string("Context", "filesystems",
+                                  existing_paths + filesystem_path + ";")
+
+        # Write the modified metadata back
+        try:
+            key_file.save_to_file(get_metadata_path(None, override, system))
+        except GLib.Error as e:
+            return False, f"Failed to save metadata file: {str(e)}"
+
+        return True, f"Successfully granted access to {path} globally"
+
+    except GLib.Error as e:
+        return False, f"Failed to modify permissions: {str(e)}"
+
+
+def global_remove_file_permissions(path: str, override=True, system=False) -> tuple[bool, str]:
+    """
+    Remove filesystem permissions from all Flatpak applications globally.
+
+    Args:
+        path (str): The path to revoke access to. Can be:
+            - "home" for home directory access
+            - "/path/to/directory" for custom directory access
+        override (bool): Whether to use global metadata file instead of per-app.
+        system (bool): Whether to modify system-wide or user installation
+
+    Returns:
+        tuple[bool, str]: (success, message)
+    """
+    try:
+        key_file = get_perm_key_file(None, override, system)
+
+        # Handle special case for home directory
+        if path.lower() == "host":
+            filesystem_path = "host"
+        elif path.lower() == "host-os":
+            filesystem_path = "host-os"
+        elif path.lower() == "host-etc":
+            filesystem_path = "host-etc"
+        elif path.lower() == "home":
+            filesystem_path = "home"
+        else:
+            # Ensure path do not ends with a trailing slash
+            filesystem_path = path.rstrip('/')
+
+        # Get existing filesystem paths
+        existing_paths = key_file.get_string("Context", "filesystems")
+
+        if existing_paths is None:
+            return True, "No filesystem permissions to remove globally"
+
+        # Split existing paths and normalize them for comparison
+        existing_paths_list = existing_paths.split(';')
+        normalized_new_path = os.path.abspath(filesystem_path.rstrip('/'))
+        normalized_existing_paths = [os.path.abspath(p.rstrip('/')) for p in existing_paths_list]
+
+        # Only remove if the path exists
+        if normalized_new_path not in normalized_existing_paths:
+            return True, f"No permission found for {path} globally"
+
+        # Remove the path from the existing paths
+        filtered_paths_list = [p for p in existing_paths_list
+                             if os.path.abspath(p.rstrip('/')) != normalized_new_path]
+
+        # Join remaining paths back together
+        new_permissions = ";".join(filtered_paths_list)
+        if new_permissions:
+        # Save changes
+            key_file.set_string("Context", "filesystems", new_permissions)
+        else:
+            key_file.remove_key("Context", "filesystems")
+
+        # Write the modified metadata back
+        try:
+            key_file.save_to_file(get_metadata_path(None, override, system))
+        except GLib.Error as e:
+            return False, f"Failed to save metadata file: {str(e)}"
+
+        return True, f"Successfully removed access to {path} globally"
+
+    except GLib.Error as e:
+        return False, f"Failed to modify permissions: {str(e)}"
+
+def global_list_file_perms(override=True, system=False) -> tuple[bool, dict[str, list[str]]]|tuple[bool, dict[str, list[str]]]:
+    """
+    List filesystem permissions for all Flatpak applications globally.
+
+    Args:
+        override (bool): Whether to use global metadata file instead of per-app.
+        system (bool): Whether to check system-wide or user installation
+
+    Returns:
+        tuple[bool, dict[str, list[str]]]: (success, permissions_dict)
+            permissions_dict contains:
+                - 'paths': list of filesystem paths
+                - 'special_paths': list of special paths (home, host, etc.)
+    """
+    try:
+        key_file = get_perm_key_file(None, override, system)
+
+        # Initialize result dictionary
+        result = {
+            "paths": [],
+            "special_paths": []
+        }
+
+        # Get existing filesystem paths
+        existing_paths = key_file.get_string("Context", "filesystems")
+        if existing_paths:
+            # Split and clean the paths
+            paths_list = [p.strip() for p in existing_paths.split(';')]
+
+            # Separate special paths from regular ones
+            for path in paths_list:
+                if path in ["home", "host", "host-os", "host-etc"]:
+                    result["special_paths"].append(path)
+                else:
+                    result["paths"].append(path)
+
+        return True, result
+    except GLib.Error:
+        return False, {"paths": [], "special_paths": []}
+
+
+def global_list_other_perm_toggles(perm_type: str, override=True, system=False) -> tuple[bool, dict[str, list[str]]]|tuple[bool, dict[str, list[str]]]:
+    """
+    List other permission toggles within "Context" for all Flatpak applications globally.
+
+    Args:
+        perm_type (str): The type of permissions to list (e.g. "shared", "sockets", "devices", "features", "persistent")
+        override (bool): Whether to use global metadata file instead of per-app.
+        system (bool): Whether to check system-wide or user installation
+
+    Returns:
+        tuple[bool, dict[str, list[str]]]: (success, permissions_dict)
+            permissions_dict contains:
+                - 'paths': list of filesystem paths
+    """
+    try:
+        key_file = get_perm_key_file(None, override, system)
+
+        # Initialize result dictionary
+        result = {
+            "paths": []
+        }
+
+        # Get existing filesystem paths
+        existing_paths = key_file.get_string("Context", perm_type)
+        if existing_paths:
+            # Split, clean, and filter out empty paths
+            paths_list = [p.strip() for p in existing_paths.split(';') if p.strip()]
+
+            # Add filtered paths to result
+            result["paths"] = paths_list
+
+        return True, result
+    except GLib.Error:
+        return False, {"paths": []}
+
+    # Get existing filesystem paths
+    existing_paths = key_file.get_string("Context", perm_type)
+    if existing_paths:
+        # Split, clean, and filter out empty paths
+        paths_list = [p.strip() for p in existing_paths.split(';') if p.strip()]
+
+        # Add filtered paths to result
+        result["paths"] = paths_list
+
+
+def global_toggle_other_perms(perm_type: str, option: str, enable: bool, override=True, system=False) -> tuple[bool, str]:
+    """
+    Toggle a specific permission option for all Flatpak applications globally.
+
+    Args:
+        perm_type (str): The type of permissions (shared, sockets, devices, features)
+        option (str): The specific permission to toggle
+        enable (bool): Whether to enable or disable the permission
+        override (bool): Whether to use global metadata file instead of per-app.
+        system (bool): Whether to check system-wide or user installation
+
+    Returns:
+        bool: True if successful, False if operation failed
+    """
+    # Get the KeyFile object
+    key_file = get_perm_key_file(None, override, system)
+
+    if not key_file:
+        return False, "Failed to get permissions globally"
+
+    try:
+        perms_list = []
+        # Get all keys in the Context section
+        # Check if Context section exists
+        if not key_file.has_group("Context"):
+            key_file.set_string("Context", perm_type, "")
+
+        # Now get the keys
+        context_keys = key_file.get_keys("Context")
+
+        # Check if perm_type exists in the section
+        if perm_type not in str(context_keys):
+            # Create the key with an empty string
+            key_file.set_string("Context", perm_type, "")
+
+        # Get the existing permissions
+        existing_perms = key_file.get_string("Context", perm_type)
+
+        if existing_perms:
+            # Split into individual permissions
+            perms_list = [perm.strip() for perm in existing_perms.split(';') if perm.strip()]
+
+        # Toggle permission
+        if enable:
+            if option not in perms_list:
+                perms_list.append(option)
+        else:
+            if option in perms_list:
+                perms_list.remove(option)
+
+        # Join back with semicolons
+        new_perms = ";".join(perms_list)
+
+        # Save changes
+        if new_perms:
+            key_file.set_string("Context", perm_type, new_perms)
+        else:
+            key_file.remove_key("Context", perm_type)
+        key_file.save_to_file(get_metadata_path(None, override, system))
+
+        return True, f"Successfully {'enabled' if enable else 'disabled'} {option} globally"
+
+    except GLib.Error:
+        return False, f"Failed to toggle {option} globally"
+
+
+def global_list_other_perm_values(perm_type: str, override=True, system=False) -> tuple[bool, dict[str, list[str]]]:
+    """
+    List all permission values for a specified type for all Flatpak applications globally.
+
+    Args:
+        perm_type (str): The type of permissions to list (e.g. "environment", "session_bus", "system_bus")
+        override (bool): Whether to use global metadata file instead of per-app.
+        system (bool): Whether to check system-wide or user installation
+
+    Returns:
+        tuple[bool, dict[str, list[str]]]: (success, env_vars_dict)
+            env_vars_dict contains:
+                - 'paths': list of environment variables
+    """
+    try:
+        key_file = get_perm_key_file(None, override, system)
+
+        # Initialize result dictionary
+        result = {
+            "paths": []
+        }
+
+        match perm_type.lower():
+            case "environment":
+                perm_type = "Environment"
+            case "session_bus":
+                perm_type = "Session Bus Policy"
+            case "system_bus":
+                perm_type = "System Bus Policy"
+            case _:
+                return False, {"paths": []}
+
+        # Check if section exists using has_group()
+        if key_file.has_group(perm_type):
+            # Get all keys in the section
+            keys = key_file.get_keys(perm_type)
+
+            # Convert ResultTuple to list of individual keys
+            keys = list(keys[0]) if hasattr(keys, '__iter__') else []
+
+            # Get each value and add to paths list
+            for key in keys:
+                value = key_file.get_string(perm_type, key)
+                if value:
+                    result["paths"].append(f"{key}={value}")
+
+        return True, result
+    except GLib.Error as e:
+        print(f"GLib.Error: {e}")
+        return False, {"paths": []}
+    except Exception as e:
+        print(f"Other error: {e}")
+        return False, {"paths": []}
+
+def global_add_permission_value(perm_type: str, value: str, override=True, system=False) -> tuple[bool, str]:
+    """
+    Add a permission value to all Flatpak applications globally.
+
+    Args:
+        perm_type (str): The type of permissions (e.g. "environment", "session_bus", "system_bus")
+        value (str): The complete permission value to add (e.g. "XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons")
+        override (bool): Whether to use global metadata file instead of per-app.
+        system (bool): Whether to modify system-wide or user installation
+
+    Returns:
+        tuple[bool, str]: (success, message)
+    """
+    try:
+        key_file = get_perm_key_file(None, override, system)
+
+        # Convert perm_type to the correct format
+        match perm_type.lower():
+            case "environment":
+                perm_type = "Environment"
+            case "session_bus":
+                perm_type = "Session Bus Policy"
+            case "system_bus":
+                perm_type = "System Bus Policy"
+            case _:
+                return False, "Invalid permission type"
+
+        # Split the value into key and actual value
+        parts = value.split('=', 1)
+        if len(parts) != 2:
+            return False, "Value must be in format 'key=value'"
+
+        key, val = parts
+
+        # Set the value
+        key_file.set_string(perm_type, key, val)
+
+        # Save the changes
+        key_file.save_to_file(get_metadata_path(None, override, system))
+
+        return True, f"Successfully added {value} to {perm_type} section"
+    except GLib.Error as e:
+        return False, f"Error adding permission: {str(e)}"
+
+def global_remove_permission_value(perm_type: str, value: str, override=True, system=False) -> tuple[bool, str]:
+    """
+    Remove a permission value from all Flatpak applications globally.
+
+    Args:
+        perm_type (str): The type of permissions (e.g. "environment", "session_bus", "system_bus")
+        value (str): The complete permission value to remove (e.g. "XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons")
+        override (bool): Whether to use global metadata file instead of per-app.
+        system (bool): Whether to modify system-wide or user installation
+
+    Returns:
+        tuple[bool, str]: (success, message)
+    """
+    try:
+        key_file = get_perm_key_file(None, override, system)
+
+        # Convert perm_type to the correct format
+        match perm_type.lower():
+            case "environment":
+                perm_type = "Environment"
+            case "session_bus":
+                perm_type = "Session Bus Policy"
+            case "system_bus":
+                perm_type = "System Bus Policy"
+            case _:
+                return False, "Invalid permission type"
+
+        # Split the value into key and actual value
+        parts = value.split('=', 1)
+        if len(parts) != 2:
+            return False, "Value must be in format 'key=value'"
+
+        key, val = parts
+        # Check if section exists
+        if not key_file.has_group(perm_type):
+            return False, f"Section {perm_type} does not exist"
+
+        # Remove the value
+        key_file.remove_key(perm_type, key)
+
+        # Save the changes
+        key_file.save_to_file(get_metadata_path(None, override, system))
+
+        return True, f"Successfully removed {value} from {perm_type} section"
+    except GLib.Error as e:
+        return False, f"Error removing permission: {str(e)}"
+
 
 def main():
     parser = argparse.ArgumentParser(description='Search Flatpak packages')
@@ -1644,6 +2124,24 @@ def main():
                         help='Remove a permission value (e.g. "environment", "session_bus", "system_bus")')
     parser.add_argument('--perm-value', type=str, metavar='VALUE',
                         help='The complete permission value to add or remove (e.g. "XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons")')
+    parser.add_argument('--override', action='store_true', help='Set global permission override instead of per-application')
+    parser.add_argument('--global-add-file-perms', type=str, metavar='PATH',
+                        help='Add file permissions to an app (e.g. any defaults: host, host-os, host-etc, home, or "/path/to/directory" for custom paths)')
+    parser.add_argument('--global-remove-file-perms', type=str, metavar='PATH',
+                        help='Remove file permissions from an app (e.g. any defaults: host, host-os, host-etc, home, or "/path/to/directory" for custom paths)')
+    parser.add_argument('--global-list-file-perms', action='store_true',
+                       help='List configured file permissions for an app')
+    parser.add_argument('--global-list-other-perm-toggles', type=str, metavar='PERM_NAME',
+                       help='List configured other permission toggles for an app (e.g. "shared", "sockets", "devices", "features", "persistent")')
+    parser.add_argument('--global-toggle-other-perms', type=str, metavar=('ENABLE/DISABLE'),
+                        help='Toggle other permissions on/off (True/False)')
+    parser.add_argument('--global-list-other-perm-values', type=str, metavar='PERM_NAME',
+                       help='List configured other permission group values for an app (e.g. "environment", "session_bus", "system_bus")')
+    parser.add_argument('--global-add-other-perm-values', type=str, metavar='TYPE',
+                        help='Add a permission value (e.g. "environment", "session_bus", "system_bus")')
+    parser.add_argument('--global-remove-other-perm-values', type=str, metavar='TYPE',
+                        help='Remove a permission value (e.g. "environment", "session_bus", "system_bus")')
+
     args = parser.parse_args()
 
     # Handle repository operations
@@ -1728,6 +2226,33 @@ def main():
             handle_search(args, searcher)
         return
 
+    if args.override:
+        if args.global_add_file_perms:
+            handle_global_add_file_perms(args, searcher)
+            return
+        if args.global_remove_file_perms:
+            handle_global_remove_file_perms(args, searcher)
+            return
+        if args.global_list_file_perms:
+            handle_global_list_file_perms(args, searcher)
+            return
+        if args.global_list_other_perm_toggles:
+            handle_global_list_other_perm_toggles(args, searcher)
+            return
+        if args.global_list_other_perm_values:
+            handle_global_list_other_perm_values(args, searcher)
+            return
+        if args.global_toggle_other_perms:
+            handle_global_toggle_other_perms(args, searcher)
+            return
+        if args.global_add_other_perm_values:
+            handle_global_add_other_perm_values(args, searcher)
+            return
+        if args.global_remove_other_perm_values:
+            handle_global_remove_other_perm_values(args, searcher)
+            return
+        else:
+            print("Missing options. Use -h for help.")
     print("Missing options. Use -h for help.")
 
 def handle_repo_toggle(args):
@@ -1897,9 +2422,12 @@ def handle_add_other_perm_values(args, searcher):
         return
 
     if not args.add_other_perm_values:
-        print("Error: must specify --perm-type")
+        print("Error: must specify which perm value")
         return
 
+    if not args.perm_value:
+        print("Error: must specify --perm-value")
+        return
     try:
         success, message = add_permission_value(args.id, args.add_other_perm_values, args.perm_value, args.system)
         print(message)
@@ -1912,7 +2440,11 @@ def handle_remove_other_perm_values(args, searcher):
         return
 
     if not args.remove_other_perm_values:
-        print("Error: must specify --perm-type")
+        print("Error: must specify which perm value")
+        return
+
+    if not args.perm_value:
+        print("Error: must specify --perm-value")
         return
 
     try:
@@ -1920,6 +2452,83 @@ def handle_remove_other_perm_values(args, searcher):
         print(message)
     except GLib.Error as e:
         print(f"{str(e)}")
+
+def handle_global_add_file_perms(args, searcher):
+    try:
+        success, message = global_add_file_permissions(args.global_add_file_perms, True, args.system)
+        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
+def handle_global_remove_file_perms(args, searcher):
+    try:
+        success, message = global_remove_file_permissions(args.global_remove_file_perms, True, args.system)
+        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
+def handle_global_list_file_perms(args, searcher):
+    try:
+        success, message = global_list_file_perms(True, args.system)
+        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
+def handle_global_list_other_perm_toggles(args, searcher):
+    try:
+        success, message = global_list_other_perm_toggles(args.global_list_other_perm_toggles, True, args.system)
+        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
+def handle_global_toggle_other_perms(args, searcher):
+    if not args.perm_type:
+        print("Error: must specify --perm-type")
+        return
+    if not args.perm_option:
+        print("Error: must specify --perm-option")
+        return
+    get_status = args.global_toggle_other_perms.lower() in ['true', 'enable']
+    try:
+        success, message = global_toggle_other_perms(args.perm_type, args.perm_option, get_status, True, args.system)
+        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
+def handle_global_list_other_perm_values(args, searcher):
+    try:
+        success, message = global_list_other_perm_values(args.global_list_other_perm_values, True, args.system)
+        print(f"{message}")
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
+def handle_global_add_other_perm_values(args, searcher):
+    if not args.global_add_other_perm_values:
+        print("Error: must specify which perm value")
+        return
+    if not args.perm_value:
+        print("Error: must specify --perm-value")
+        return
+    try:
+        success, message = global_add_permission_value(args.global_add_other_perm_values, args.perm_value, True, args.system)
+        print(message)
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
+def handle_global_remove_other_perm_values(args, searcher):
+    if not args.global_remove_other_perm_values:
+        print("Error: must specify which perm value")
+        return
+
+    if not args.perm_value:
+        print("Error: must specify --perm-value")
+        return
+    try:
+        success, message = global_remove_permission_value(args.global_remove_other_perm_values, args.perm_value, True, args.system)
+        print(message)
+    except GLib.Error as e:
+        print(f"{str(e)}")
+
 
 def handle_search(args, searcher):
     if args.repo:
