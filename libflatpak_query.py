@@ -1432,7 +1432,6 @@ def toggle_other_perms(app_id: str, perm_type: str, option: str, enable: bool, s
 
         # Join back with semicolons
         new_perms = ";".join(perms_list)
-        print(new_perms)
 
         # Save changes
         key_file.set_string("Context", perm_type, new_perms)
