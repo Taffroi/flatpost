@@ -171,5 +171,24 @@ Common CLI combinations:
 ./libflatpak_query.py --override --global-list-other-perm-values <environment, session_bus, system_bus>
 ./libflatpak_query.py --override --global-add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
 ./libflatpak_query.py --override --global-remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
+./libflatpak_query.py --id <app id> --list-file-perms --system
+./libflatpak_query.py --id <app id> --add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
+./libflatpak_query.py --id <app id> --remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
+./libflatpak_query.py --id <app id> --list-other-perm-toggles <shared, sockets, devices, features, persistent> --system
+./libflatpak_query.py --id <app id> --toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
+./libflatpak_query.py --id <app id> --toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
+./libflatpak_query.py --id <app id> --list-other-perm-values <environment, session_bus, system_bus> --system
+./libflatpak_query.py --id <app id> --add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
+./libflatpak_query.py --id <app id> --remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
+./libflatpak_query.py --override --global-list-file-perms --system
+./libflatpak_query.py --override --global-add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
+./libflatpak_query.py --override --global-remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
+./libflatpak_query.py --override --global-list-other-perm-toggles <shared, sockets, devices, features, persistent> --system
+./libflatpak_query.py --override --global-toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
+./libflatpak_query.py --override --global-toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
+./libflatpak_query.py --override --global-list-other-perm-values <environment, session_bus, system_bus> --system
+./libflatpak_query.py --override --global-add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
+./libflatpak_query.py --override --global-remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
+
 ```
 
