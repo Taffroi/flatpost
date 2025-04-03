@@ -53,13 +53,12 @@ Shop: `./main.py`
 CLI:
 ```
 ./libflatpak_query.py -h
-usage: libflatpak_query.py [-h] [--id ID] [--repo REPO] [--list-all] [--categories] [--subcategories] [--list-installed] [--check-updates] [--list-repos] [--add-repo REPO_FILE]
-                           [--remove-repo REPO_NAME] [--toggle-repo ENABLE/DISABLE] [--install APP_ID] [--remove APP_ID] [--update APP_ID] [--system] [--refresh] [--refresh-local]
-                           [--add-file-perms PATH] [--remove-file-perms PATH] [--list-file-perms] [--list-other-perm-toggles PERM_NAME] [--toggle-other-perms ENABLE/DISABLE]
-                           [--perm-type PERM_TYPE] [--perm-option PERM_OPTION] [--list-other-perm-values PERM_NAME] [--add-other-perm-values TYPE] [--remove-other-perm-values TYPE]
-                           [--perm-value VALUE] [--override] [--global-add-file-perms PATH] [--global-remove-file-perms PATH] [--global-list-file-perms]
-                           [--global-list-other-perm-toggles PERM_NAME] [--global-toggle-other-perms ENABLE/DISABLE] [--global-list-other-perm-values PERM_NAME]
-                           [--global-add-other-perm-values TYPE] [--global-remove-other-perm-values TYPE]
+usage: libflatpak_query.py [-h] [--id ID] [--repo REPO] [--list-all] [--categories] [--subcategories] [--list-installed] [--check-updates] [--list-repos] [--add-repo REPO_FILE] [--remove-repo REPO_NAME] [--toggle-repo ENABLE/DISABLE]
+                           [--install APP_ID] [--remove APP_ID] [--update APP_ID] [--system] [--refresh] [--refresh-local] [--add-file-perms PATH] [--remove-file-perms PATH] [--list-file-perms] [--list-other-perm-toggles PERM_NAME]
+                           [--toggle-other-perms ENABLE/DISABLE] [--perm-type PERM_TYPE] [--perm-option PERM_OPTION] [--list-other-perm-values PERM_NAME] [--add-other-perm-values TYPE] [--remove-other-perm-values TYPE] [--perm-value VALUE]
+                           [--override] [--global-add-file-perms PATH] [--global-remove-file-perms PATH] [--global-list-file-perms] [--global-list-other-perm-toggles PERM_NAME] [--global-toggle-other-perms ENABLE/DISABLE]
+                           [--global-list-other-perm-values PERM_NAME] [--global-add-other-perm-values TYPE] [--global-remove-other-perm-values TYPE] [--get-app-portal-permissions] [--get-portal-permissions TYPE] [--get-all-portal-permissions]
+                           [--set-app-portal-permissions TYPE] [--portal-perm-value TYPE]
 
 Search Flatpak packages
 
@@ -121,6 +120,16 @@ options:
                         Add a permission value (e.g. "environment", "session_bus", "system_bus")
   --global-remove-other-perm-values TYPE
                         Remove a permission value (e.g. "environment", "session_bus", "system_bus")
+  --get-app-portal-permissions
+                        Check specified portal permissions (e.g. "background", "notifications", "microphone", "speakers", "camera", "location") for a specified application ID.
+  --get-portal-permissions TYPE
+                        List all current portal permissions for all applications
+  --get-all-portal-permissions
+                        List all current portal permissions for all applications
+  --set-app-portal-permissions TYPE
+                        Set specified portal permissions (e.g. "background", "notifications", "microphone", "speakers", "camera", "location") yes/no for a specified application ID.
+  --portal-perm-value TYPE
+                        Set specified portal permissions value (yes/no) for a specified application ID.
 ```
 
 Common CLI combinations:
@@ -190,5 +199,8 @@ Common CLI combinations:
 ./libflatpak_query.py --override --global-add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
 ./libflatpak_query.py --override --global-remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
 
+./libflatpak_query.py --get-all-portal-permissions
+./libflatpak_query.py --get-portal-permissions <portal>
+./libflatpak_query.py --get-app-portal-permissions --id <app id>
+./libflatpak_query.py --set-app-portal-permissions <portal> --portal-perm-value <yes/no> --id <app id>
 ```
-
