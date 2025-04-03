@@ -49,7 +49,7 @@ import os
 import sys
 import json
 import time
-
+import dbus
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -2071,6 +2071,136 @@ def global_remove_permission_value(perm_type: str, value: str, override=True, sy
     except GLib.Error as e:
         return False, f"Error removing permission: {str(e)}"
 
+def portal_get_permission_store():
+    bus = dbus.SessionBus()
+    portal_service = bus.get_object("org.freedesktop.impl.portal.PermissionStore", "/org/freedesktop/impl/portal/PermissionStore")
+    permission_store = dbus.Interface(portal_service, "org.freedesktop.impl.portal.PermissionStore")
+    return permission_store
+
+def portal_set_app_permissions(portal: str, app_id: str, status_str: str):
+
+    portal_id = ""
+    # This is done separately incase user types "notification" instead of "notifications"
+    if portal.lower() in "notifications":
+        portal = "notifications"
+
+    status = "no"
+    if status_str in ["yes", "true", "1", "enable"]:
+        status = "yes"
+
+    match portal.lower():
+        case "background":
+            portal_id = "background"
+        case "notifications":
+            portal_id = "notification"
+        case "microphone":
+            portal = "devices"
+            portal_id = "microphone"
+        case "speakers":
+            portal = "devices"
+            portal_id = "speakers"
+        case "camera":
+            portal = "devices"
+            portal_id = "camera"
+        case "location":
+            portal_id = "location"
+    try:
+        permission_store = portal_get_permission_store()
+        permission_store.SetPermission(
+            portal,   # Category (string)
+            False,             # Permission status (boolean: False means 'no')
+            portal_id,    # Permission type (string)
+            app_id, # App ID (string)
+            [dbus.String(status)] # Array of permissions (string array)
+        )
+        return True, f"Permission set to {status} for {app_id} in {portal_id} portal"
+    except:
+        return False, f"Failed to set permission for {app_id} in {portal_id} portal"
+
+def portal_get_app_permissions(app_id: str):
+    permissions = portal_lookup_all()
+    if not permissions:
+        return False, f"Permission not found for {app_id} in any portal"
+
+    # Store results for each portal where we find the app
+    app_permissions = {}
+
+    # Iterate through all portal entries
+    for portal_id, permission_data in permissions:
+        # Extract the DBus Dictionary containing app permissions
+        dbus_dict = permission_data[0]  # First element contains the dictionary
+
+        # Check if our target app_id exists in the dictionary
+        if app_id in dbus_dict:
+            # Get the array of values for this app
+            value_array = dbus_dict[app_id]
+
+            # Return the first string value (typically 'yes' or 'no')
+            if len(value_array) > 0:
+                app_permissions[portal_id] = str(value_array[0])
+
+    # Format and return the results
+    if app_permissions:
+        success_message = f"\nFound permissions for {app_id}:\n"
+        for portal, permission in app_permissions.items():
+            success_message += f"- {portal}: {permission}\n"
+        return True, success_message.strip()
+
+    return False, f"No permissions found for {app_id} in any portal"
+
+
+def portal_lookup(portal: str):
+    try:
+        portal_id = ""
+        # This is done separately incase user types "notification" instead of "notifications"
+        if portal.lower() in "notifications":
+            portal = "notifications"
+
+        match portal.lower():
+            case "background":
+                portal_id = "background"
+            case "notifications":
+                portal_id = "notification"
+            case "microphone":
+                portal = "devices"
+                portal_id = "microphone"
+            case "speakers":
+                portal = "devices"
+                portal_id = "speakers"
+            case "camera":
+                portal = "devices"
+                portal_id = "camera"
+            case "location":
+                portal_id = "location"
+
+        permission_store = portal_get_permission_store()
+        permissions = permission_store.Lookup(
+            portal,   # Category (string)
+            portal_id    # Permission type (string)
+        )
+        if permissions:
+            return permissions
+    except dbus.exceptions.DBusException:
+        # We don't care if a lookup fails, that just means no options were set for the portal
+        return []
+
+def portal_lookup_all():
+    portal_permissions = []
+    # This is done separately incase user types "notification" instead of "notifications"
+
+    portal_names = ["background", "notifications", "microphone", "speakers", "camera", "location"]
+    for portal in portal_names:
+        try:
+            permissions = portal_lookup(
+                portal   # Category (string)
+            )
+            if permissions:
+                portal_permissions.append((portal, permissions))
+        except dbus.exceptions.DBusException:
+            # We don't care if a lookup fails, that just means no options were set for the portal
+            return []
+    return portal_permissions
+
 
 def main():
     parser = argparse.ArgumentParser(description='Search Flatpak packages')
@@ -2141,6 +2271,16 @@ def main():
                         help='Add a permission value (e.g. "environment", "session_bus", "system_bus")')
     parser.add_argument('--global-remove-other-perm-values', type=str, metavar='TYPE',
                         help='Remove a permission value (e.g. "environment", "session_bus", "system_bus")')
+    parser.add_argument('--get-app-portal-permissions', action='store_true',
+                        help='Check specified portal permissions  (e.g. "background", "notifications", "microphone", "speakers", "camera", "location") for a specified application ID.')
+    parser.add_argument('--get-portal-permissions',  type=str, metavar='TYPE',
+                        help='List all current portal permissions for all applications')
+    parser.add_argument('--get-all-portal-permissions', action='store_true',
+                        help='List all current portal permissions for all applications')
+    parser.add_argument('--set-app-portal-permissions', type=str, metavar='TYPE',
+                        help='Set specified portal permissions  (e.g. "background", "notifications", "microphone", "speakers", "camera", "location") yes/no for a specified application ID.')
+    parser.add_argument('--portal-perm-value', type=str, metavar='TYPE',
+                        help='Set specified portal permissions value (yes/no) for a specified application ID.')
 
     args = parser.parse_args()
 
@@ -2222,6 +2362,12 @@ def main():
         if args.remove_other_perm_values:
             handle_remove_other_perm_values(args, searcher)
             return
+        if args.get_app_portal_permissions:
+            handle_get_app_portal_permissions(args, searcher)
+            return
+        if args.set_app_portal_permissions:
+            handle_set_app_portal_permissions(args, searcher)
+            return
         else:
             handle_search(args, searcher)
         return
@@ -2253,6 +2399,29 @@ def main():
             return
         else:
             print("Missing options. Use -h for help.")
+
+    if args.get_all_portal_permissions:
+        result = portal_lookup_all()
+        if result:
+            print("\nPortal Permissions:")
+            print("-" * 50)
+            for portal_id, permissions in result:
+                print(f"{portal_id}: {permissions}")
+        else:
+            print("No app permissions found set for any portals")
+        return
+
+    if args.get_portal_permissions:
+        result = portal_lookup(args.get_portal_permissions)
+        if result:
+            print("\nPortal Permissions:")
+            print("-" * 50)
+            for permissions in result:
+                print(f"{args.get_portal_permissions}: {permissions}")
+        else:
+            print(f"No app permissions found for {args.get_portal_permissions} portal")
+        return
+
     print("Missing options. Use -h for help.")
 
 def handle_repo_toggle(args):
@@ -2529,6 +2698,35 @@ def handle_global_remove_other_perm_values(args, searcher):
     except GLib.Error as e:
         print(f"{str(e)}")
 
+def handle_set_app_portal_permissions(args, searcher):
+    if not args.id:
+        print("Error: must specify --id")
+        return
+    if not args.set_app_portal_permissions:
+        print("Error: must specify which portal")
+        return
+    if not args.portal_perm_value:
+        print("Error: must specify --portal-perm-value")
+        return
+    if args.portal_perm_value.lower() in ['true', 'enable', 'yes', '1']:
+        status_str = "yes"
+    else:
+        status_str = "no"
+    try:
+        success, message = portal_set_app_permissions(args.set_app_portal_permissions, args.id, status_str)
+        print(f"{message}")
+    except dbus.exceptions.DBusException as e:
+        print(f"{str(e)}")
+
+def handle_get_app_portal_permissions(args, searcher):
+    if not args.id:
+        print("Error: must specify --id")
+        return
+    try:
+        success, message = portal_get_app_permissions(args.id)
+        print(f"{message}")
+    except dbus.exceptions.DBusException as e:
+        print(f"{str(e)}")
 
 def handle_search(args, searcher):
     if args.repo:
