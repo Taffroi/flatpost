@@ -1246,14 +1246,10 @@ def add_file_permissions(app_id: str, path: str, perm_type=None, system=False) -
             key_file.set_string("Context", perm_type, filesystem_path)
         else:
             # Split existing paths and check if our path already exists
-            print(existing_paths)
             existing_paths_list = existing_paths.split(';')
-            print(existing_paths_list)
             # Normalize paths for comparison (remove trailing slashes, convert to absolute paths)
             normalized_new_path = os.path.abspath(filesystem_path.rstrip('/'))
             normalized_existing_paths = [os.path.abspath(p.rstrip('/')) for p in existing_paths_list]
-            print(normalized_new_path)
-            print(normalized_existing_paths)
 
             # Only add if the path doesn't already exist
             if normalized_new_path not in normalized_existing_paths:
