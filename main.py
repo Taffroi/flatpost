@@ -7,8 +7,8 @@ gi.require_version("GLib", "2.0")
 gi.require_version("Flatpak", "1.0")
 gi.require_version('GdkPixbuf', '2.0')
 from gi.repository import Gtk, Gio, Gdk, GLib, GdkPixbuf
-import libflatpak_query
-from libflatpak_query import AppStreamComponentKind as AppKind
+import fp_turbo
+from fp_turbo import AppStreamComponentKind as AppKind
 import json
 import threading
 import subprocess
@@ -494,8 +494,8 @@ class MainWindow(Gtk.Window):
 
     def populate_repo_dropdown(self):
         # Get list of repositories
-        libflatpak_query.repolist(self.system_mode)
-        repos = libflatpak_query.repolist()
+        fp_turbo.repolist(self.system_mode)
+        repos = fp_turbo.repolist()
 
         # Clear existing items
         self.repo_dropdown.remove_all()
@@ -532,7 +532,7 @@ class MainWindow(Gtk.Window):
         # Show the dialog
         dialog.show_all()
 
-        searcher = libflatpak_query.get_reposearcher(self.system_mode)
+        searcher = fp_turbo.get_reposearcher(self.system_mode)
 
         # Define thread target function
         def retrieve_metadata():
@@ -576,7 +576,7 @@ class MainWindow(Gtk.Window):
 
     def refresh_local(self):
         try:
-            searcher = libflatpak_query.get_reposearcher(self.system_mode)
+            searcher = fp_turbo.get_reposearcher(self.system_mode)
             installed_results, updates_results = searcher.refresh_local(self.system_mode)
             self.installed_results = installed_results
             self.updates_results = updates_results
@@ -1159,7 +1159,7 @@ class MainWindow(Gtk.Window):
             self.right_container.pack_start(header_bar, False, False, 0)
 
             # Get list of repositories
-            repos = libflatpak_query.repolist(self.system_mode)
+            repos = fp_turbo.repolist(self.system_mode)
 
             # Create a scrolled window for repositories
             scrolled_window = Gtk.ScrolledWindow()
@@ -1546,7 +1546,7 @@ class MainWindow(Gtk.Window):
         content_area.pack_start(Gtk.Label(label=label), False, False, 0)
 
         # Search for available repositories containing this app
-        searcher = libflatpak_query.get_reposearcher(self.system_mode)
+        searcher = fp_turbo.get_reposearcher(self.system_mode)
         if self.system_mode is False:
             content_area.pack_start(Gtk.Label(label="Installation Type: User"), False, False, 0)
         else:
@@ -1555,7 +1555,7 @@ class MainWindow(Gtk.Window):
         # Populate repository dropdown
         if button and app:
             available_repos = set()
-            repos = libflatpak_query.repolist(self.system_mode)
+            repos = fp_turbo.repolist(self.system_mode)
             for repo in repos:
                 if not repo.get_disabled():
                     search_results = searcher.search_flatpak(id, repo.get_name())
@@ -1601,9 +1601,9 @@ class MainWindow(Gtk.Window):
                 # Show waiting dialog
                 GLib.idle_add(self.show_waiting_dialog)
                 if button and app:
-                    success, message = libflatpak_query.install_flatpak(app, selected_repo, self.system_mode)
+                    success, message = fp_turbo.install_flatpak(app, selected_repo, self.system_mode)
                 else:
-                    success, message = libflatpak_query.install_flatpakref(app, self.system_mode)
+                    success, message = fp_turbo.install_flatpakref(app, self.system_mode)
                 GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
                 # Start spinner and begin installation
             thread = threading.Thread(target=perform_installation)
@@ -1666,7 +1666,7 @@ class MainWindow(Gtk.Window):
                 # Show waiting dialog
                 GLib.idle_add(self.show_waiting_dialog, "Removing package...")
 
-                success, message = libflatpak_query.remove_flatpak(app, None, self.system_mode)
+                success, message = fp_turbo.remove_flatpak(app, None, self.system_mode)
 
                 # Update UI on main thread
                 GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
@@ -1694,7 +1694,7 @@ class MainWindow(Gtk.Window):
         listbox.add(row_header)
 
         # Get permissions
-        success, perms = libflatpak_query.list_other_perm_values(app_id, perm_type, self.system_mode)
+        success, perms = fp_turbo.list_other_perm_values(app_id, perm_type, self.system_mode)
         if not success:
             perms = {"paths": []}
 
@@ -1793,9 +1793,9 @@ class MainWindow(Gtk.Window):
 
         # Get permissions
         if perm_type == "persistent":
-            success, perms = libflatpak_query.list_other_perm_toggles(app_id, perm_type, self.system_mode)
+            success, perms = fp_turbo.list_other_perm_toggles(app_id, perm_type, self.system_mode)
         else:
-            success, perms = libflatpak_query.list_other_perm_values(app_id, perm_type, self.system_mode)
+            success, perms = fp_turbo.list_other_perm_values(app_id, perm_type, self.system_mode)
         if not success:
             perms = {"paths": []}
 
@@ -1844,7 +1844,7 @@ class MainWindow(Gtk.Window):
         listbox.add(row_header)
 
         # Get filesystem permissions
-        success, perms = libflatpak_query.list_file_perms(app_id, self.system_mode)
+        success, perms = fp_turbo.list_file_perms(app_id, self.system_mode)
         if not success:
             perms = {"paths": [], "special_paths": []}
 
@@ -2017,15 +2017,15 @@ class MainWindow(Gtk.Window):
 
         # Handle portal permissions specially
         if section_title == "Portals":
-            success, perms = libflatpak_query.portal_get_app_permissions(app_id)
+            success, perms = fp_turbo.portal_get_app_permissions(app_id)
             if not success:
                 perms = {}
         elif section_title in ["Persistent", "Environment", "System Bus", "Session Bus"]:
-            success, perms = libflatpak_query.list_other_perm_toggles(app_id, perm_type, self.system_mode)
+            success, perms = fp_turbo.list_other_perm_toggles(app_id, perm_type, self.system_mode)
             if not success:
                 perms = {"paths": []}
         else:
-            success, perms = libflatpak_query.list_other_perm_toggles(app_id, perm_type, self.system_mode)
+            success, perms = fp_turbo.list_other_perm_toggles(app_id, perm_type, self.system_mode)
             if not success:
                 perms = {"paths": []}
 
@@ -2066,13 +2066,13 @@ class MainWindow(Gtk.Window):
     def _on_switch_toggled(self, switch, state, app_id, perm_type, option):
         """Handle switch toggle events"""
         if perm_type is None:  # Portal section
-            success, message = libflatpak_query.portal_set_app_permissions(
+            success, message = fp_turbo.portal_set_app_permissions(
                 option.lower(),
                 app_id,
                 "yes" if state else "no"
             )
         else:
-            success, message = libflatpak_query.toggle_other_perms(
+            success, message = fp_turbo.toggle_other_perms(
                 app_id,
                 perm_type,
                 option.lower(),
@@ -2088,21 +2088,21 @@ class MainWindow(Gtk.Window):
         """Handle remove path button click"""
         if perm_type:
             if perm_type == "persistent":
-                success, message = libflatpak_query.remove_file_permissions(
+                success, message = fp_turbo.remove_file_permissions(
                     app_id,
                     path,
                     "persistent",
                     self.system_mode
                 )
             else:
-                success, message = libflatpak_query.remove_permission_value(
+                success, message = fp_turbo.remove_permission_value(
                     app_id,
                     perm_type,
                     path,
                     self.system_mode
                 )
         else:
-            success, message = libflatpak_query.remove_file_permissions(
+            success, message = fp_turbo.remove_file_permissions(
                 app_id,
                 path,
                 "filesystems",
@@ -2136,21 +2136,21 @@ class MainWindow(Gtk.Window):
             path = entry.get_text()
             if perm_type:
                 if perm_type == "persistent":
-                    success, message = libflatpak_query.add_file_permissions(
+                    success, message = fp_turbo.add_file_permissions(
                         app_id,
                         path,
                         "persistent",
                         self.system_mode
                     )
                 else:
-                    success, message = libflatpak_query.add_permission_value(
+                    success, message = fp_turbo.add_permission_value(
                         app_id,
                         perm_type,
                         path,
                         self.system_mode
                     )
             else:
-                success, message = libflatpak_query.add_file_permissions(
+                success, message = fp_turbo.add_file_permissions(
                     app_id,
                     path,
                     "filesystems",
@@ -2213,7 +2213,7 @@ class MainWindow(Gtk.Window):
         listbox.add(row_header)
 
         # Get permissions
-        success, perms = libflatpak_query.global_list_other_perm_values(perm_type, True, self.system_mode)
+        success, perms = fp_turbo.global_list_other_perm_values(perm_type, True, self.system_mode)
         if not success:
             perms = {"paths": []}
 
@@ -2312,9 +2312,9 @@ class MainWindow(Gtk.Window):
 
         # Get permissions
         if perm_type == "persistent":
-            success, perms = libflatpak_query.global_list_other_perm_toggles(perm_type, True, self.system_mode)
+            success, perms = fp_turbo.global_list_other_perm_toggles(perm_type, True, self.system_mode)
         else:
-            success, perms = libflatpak_query.global_list_other_perm_values(perm_type, True, self.system_mode)
+            success, perms = fp_turbo.global_list_other_perm_values(perm_type, True, self.system_mode)
         if not success:
             perms = {"paths": []}
 
@@ -2363,7 +2363,7 @@ class MainWindow(Gtk.Window):
         listbox.add(row_header)
 
         # Get filesystem permissions
-        success, perms = libflatpak_query.global_list_file_perms(True, self.system_mode)
+        success, perms = fp_turbo.global_list_file_perms(True, self.system_mode)
         if not success:
             perms = {"paths": [], "special_paths": []}
 
@@ -2525,11 +2525,11 @@ class MainWindow(Gtk.Window):
         listbox.add(row_header)
 
         if section_title in ["Persistent", "Environment", "System Bus", "Session Bus"]:
-            success, perms = libflatpak_query.global_list_other_perm_toggles(perm_type, True, self.system_mode)
+            success, perms = fp_turbo.global_list_other_perm_toggles(perm_type, True, self.system_mode)
             if not success:
                 perms = {"paths": []}
         else:
-            success, perms = libflatpak_query.global_list_other_perm_toggles(perm_type, True, self.system_mode)
+            success, perms = fp_turbo.global_list_other_perm_toggles(perm_type, True, self.system_mode)
             if not success:
                 perms = {"paths": []}
 
@@ -2569,7 +2569,7 @@ class MainWindow(Gtk.Window):
 
     def _global_on_switch_toggled(self, switch, state, perm_type, option):
         """Handle switch toggle events"""
-        success, message = libflatpak_query.global_toggle_other_perms(
+        success, message = fp_turbo.global_toggle_other_perms(
                 perm_type,
                 option.lower(),
                 state,
@@ -2585,21 +2585,21 @@ class MainWindow(Gtk.Window):
         """Handle remove path button click"""
         if perm_type:
             if perm_type == "persistent":
-                success, message = libflatpak_query.global_remove_file_permissions(
+                success, message = fp_turbo.global_remove_file_permissions(
                     path,
                     "persistent",
                     True,
                     self.system_mode
                 )
             else:
-                success, message = libflatpak_query.global_remove_permission_value(
+                success, message = fp_turbo.global_remove_permission_value(
                     perm_type,
                     path,
                     True,
                     self.system_mode
                 )
         else:
-            success, message = libflatpak_query.global_remove_file_permissions(
+            success, message = fp_turbo.global_remove_file_permissions(
                 path,
                 "filesystems",
                 True,
@@ -2633,21 +2633,21 @@ class MainWindow(Gtk.Window):
             path = entry.get_text()
             if perm_type:
                 if perm_type == "persistent":
-                    success, message = libflatpak_query.global_add_file_permissions(
+                    success, message = fp_turbo.global_add_file_permissions(
                         path,
                         "persistent",
                         True,
                         self.system_mode
                     )
                 else:
-                    success, message = libflatpak_query.global_add_permission_value(
+                    success, message = fp_turbo.global_add_permission_value(
                         perm_type,
                         path,
                         True,
                         self.system_mode
                     )
             else:
-                success, message = libflatpak_query.global_add_file_permissions(
+                success, message = fp_turbo.global_add_file_permissions(
                     path,
                     "filesystems",
                     True,
@@ -2728,7 +2728,7 @@ class MainWindow(Gtk.Window):
                 # Show waiting dialog
                 GLib.idle_add(self.show_waiting_dialog, "Updating package...")
 
-                success, message = libflatpak_query.update_flatpak(app, None, self.system_mode)
+                success, message = fp_turbo.update_flatpak(app, None, self.system_mode)
 
                 # Update UI on main thread
                 GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
@@ -2764,7 +2764,7 @@ class MainWindow(Gtk.Window):
         checkbox.get_parent().set_sensitive(True)
         if checkbox.get_active():
             checkbox.get_style_context().remove_class("dim-label")
-            success, message = libflatpak_query.repotoggle(repo.get_name(), True, self.system_mode)
+            success, message = fp_turbo.repotoggle(repo.get_name(), True, self.system_mode)
             message_type = Gtk.MessageType.INFO
             if success:
                 self.refresh_local()
@@ -2784,7 +2784,7 @@ class MainWindow(Gtk.Window):
                 dialog.destroy()
         else:
             checkbox.get_style_context().add_class("dim-label")
-            success, message = libflatpak_query.repotoggle(repo.get_name(), False, self.system_mode)
+            success, message = fp_turbo.repotoggle(repo.get_name(), False, self.system_mode)
             message_type = Gtk.MessageType.INFO
             if success:
                 self.refresh_local()
@@ -2819,7 +2819,7 @@ class MainWindow(Gtk.Window):
 
         if response == Gtk.ResponseType.YES:
             try:
-                libflatpak_query.repodelete(repo.get_name(), self.system_mode)
+                fp_turbo.repodelete(repo.get_name(), self.system_mode)
                 self.refresh_local()
                 self.show_category_apps('repositories')
             except GLib.GError as e:
@@ -2852,7 +2852,7 @@ class MainWindow(Gtk.Window):
     def on_add_flathub_repo_button_clicked(self, button):
         """Handle the Add Flathub Repository button click"""
         # Add the repository
-        success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/repo/flathub.flatpakrepo", self.system_mode)
+        success, error_message = fp_turbo.repoadd("https://dl.flathub.org/repo/flathub.flatpakrepo", self.system_mode)
         if error_message:
             error_dialog = Gtk.MessageDialog(
                 transient_for=None,  # Changed from self
@@ -2870,7 +2870,7 @@ class MainWindow(Gtk.Window):
     def on_add_flathub_beta_repo_button_clicked(self, button):
         """Handle the Add Flathub Beta Repository button click"""
         # Add the repository
-        success, error_message = libflatpak_query.repoadd("https://dl.flathub.org/beta-repo/flathub-beta.flatpakrepo", self.system_mode)
+        success, error_message = fp_turbo.repoadd("https://dl.flathub.org/beta-repo/flathub-beta.flatpakrepo", self.system_mode)
         if error_message:
             error_dialog = Gtk.MessageDialog(
                 transient_for=None,  # Changed from self
@@ -2953,7 +2953,7 @@ class MainWindow(Gtk.Window):
 
         if response == Gtk.ResponseType.OK and repo_file_path:
             # Add the repository
-            success, error_message = libflatpak_query.repoadd(repo_file_path, self.system_mode)
+            success, error_message = fp_turbo.repoadd(repo_file_path, self.system_mode)
             if error_message:
                 error_dialog = Gtk.MessageDialog(
                     transient_for=None,  # Changed from self

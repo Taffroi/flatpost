@@ -53,8 +53,8 @@ Shop: `./main.py`
 
 CLI:
 ```
-./libflatpak_query.py -h
-usage: libflatpak_query.py [-h] [--id ID] [--repo REPO] [--list-all] [--categories] [--subcategories] [--list-installed] [--check-updates] [--list-repos] [--add-repo REPO_FILE] [--remove-repo REPO_NAME] [--toggle-repo ENABLE/DISABLE]
+./fp_turbo.py -h
+usage: fp_turbo.py [-h] [--id ID] [--repo REPO] [--list-all] [--categories] [--subcategories] [--list-installed] [--check-updates] [--list-repos] [--add-repo REPO_FILE] [--remove-repo REPO_NAME] [--toggle-repo ENABLE/DISABLE]
                            [--install APP_ID] [--remove APP_ID] [--update APP_ID] [--system] [--refresh] [--refresh-local] [--add-file-perms PATH] [--remove-file-perms PATH] [--list-file-perms] [--list-other-perm-toggles PERM_NAME]
                            [--toggle-other-perms ENABLE/DISABLE] [--perm-type PERM_TYPE] [--perm-option PERM_OPTION] [--list-other-perm-values PERM_NAME] [--add-other-perm-values TYPE] [--remove-other-perm-values TYPE] [--perm-value VALUE]
                            [--override] [--global-add-file-perms PATH] [--global-remove-file-perms PATH] [--global-list-file-perms] [--global-list-other-perm-toggles PERM_NAME] [--global-toggle-other-perms ENABLE/DISABLE]
@@ -135,75 +135,75 @@ options:
 
 Common CLI combinations:
 ```
-./libflatpak_query.py --id <app id>
-./libflatpak_query.py --id <app id> --repo flatpak beta
-./libflatpak_query.py --id <app id> --repo flatpak-beta --system
-./libflatpak_query.py --list-all
-./libflatpak_query.py --list-all --system
-./libflatpak_query.py --categories
-./libflatpak_query.py --categories --system
-./libflatpak_query.py --subcategories
-./libflatpak_query.py --subcategories --system
-./libflatpak_query.py --list-installed
-./libflatpak_query.py --list-installed --system
-./libflatpak_query.py --check-updates
-./libflatpak_query.py --check-updates --system
-./libflatpak_query.py --list-repos
-./libflatpak_query.py --list-repos --system
-./libflatpak_query.py --add-repo <.flatpakrepo or url to .flatpakrepo file>
-./libflatpak_query.py --add-repo <.flatpakrepo or url to .flatpakrepo file> --system
-./libflatpak_query.py --remove-repo <repo name>
-./libflatpak_query.py --remove-repo <repo name> --system
-./libflatpak_query.py --toggle-repo <enable/disable> --repo <repo name>
-./libflatpak_query.py --toggle-repo <enable/disable> --repo <repo name> --system
-./libflatpak_query.py --install <app id>
-./libflatpak_query.py --install <app id> --repo <repo name>
-./libflatpak_query.py --install <app id> --repo <repo name> --system
-./libflatpak_query.py --remove <app id>
-./libflatpak_query.py --remove <app id> --system
-./libflatpak_query.py --update <app id>
-./libflatpak_query.py --update <app id> --system
-./libflatpak_query.py --id <app id> --list-file-perms
-./libflatpak_query.py --id <app id> --add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
-./libflatpak_query.py --id <app id> --remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
-./libflatpak_query.py --id <app id> --list-other-perm-toggles <shared, sockets, devices, features, persistent>
-./libflatpak_query.py --id <app id> --toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
-./libflatpak_query.py --id <app id> --toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
-./libflatpak_query.py --id <app id> --list-other-perm-values <environment, session_bus, system_bus>
-./libflatpak_query.py --id <app id> --add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
-./libflatpak_query.py --id <app id> --remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
-./libflatpak_query.py --override --global-list-file-perms
-./libflatpak_query.py --override --global-add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
-./libflatpak_query.py --override --global-remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
-./libflatpak_query.py --override --global-list-other-perm-toggles <shared, sockets, devices, features, persistent>
-./libflatpak_query.py --override --global-toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
-./libflatpak_query.py --override --global-toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
-./libflatpak_query.py --override --global-list-other-perm-values <environment, session_bus, system_bus>
-./libflatpak_query.py --override --global-add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
-./libflatpak_query.py --override --global-remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
-./libflatpak_query.py --id <app id> --list-file-perms --system
-./libflatpak_query.py --id <app id> --add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
-./libflatpak_query.py --id <app id> --remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
-./libflatpak_query.py --id <app id> --add-file-perms "/path/to/directory" --perm-type persistent
-./libflatpak_query.py --id <app id> --remove-file-perms "/path/to/directory" --perm-type persistent
-./libflatpak_query.py --id <app id> --list-other-perm-toggles <shared, sockets, devices, features, persistent> --system
-./libflatpak_query.py --id <app id> --toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
-./libflatpak_query.py --id <app id> --toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
-./libflatpak_query.py --id <app id> --list-other-perm-values <environment, session_bus, system_bus> --system
-./libflatpak_query.py --id <app id> --add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
-./libflatpak_query.py --id <app id> --remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
-./libflatpak_query.py --override --global-list-file-perms --system
-./libflatpak_query.py --override --global-add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
-./libflatpak_query.py --override --global-remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
-./libflatpak_query.py --override --global-list-other-perm-toggles <shared, sockets, devices, features, persistent> --system
-./libflatpak_query.py --override --global-toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
-./libflatpak_query.py --override --global-toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
-./libflatpak_query.py --override --global-list-other-perm-values <environment, session_bus, system_bus> --system
-./libflatpak_query.py --override --global-add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
-./libflatpak_query.py --override --global-remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
+./fp_turbo.py --id <app id>
+./fp_turbo.py --id <app id> --repo flatpak beta
+./fp_turbo.py --id <app id> --repo flatpak-beta --system
+./fp_turbo.py --list-all
+./fp_turbo.py --list-all --system
+./fp_turbo.py --categories
+./fp_turbo.py --categories --system
+./fp_turbo.py --subcategories
+./fp_turbo.py --subcategories --system
+./fp_turbo.py --list-installed
+./fp_turbo.py --list-installed --system
+./fp_turbo.py --check-updates
+./fp_turbo.py --check-updates --system
+./fp_turbo.py --list-repos
+./fp_turbo.py --list-repos --system
+./fp_turbo.py --add-repo <.flatpakrepo or url to .flatpakrepo file>
+./fp_turbo.py --add-repo <.flatpakrepo or url to .flatpakrepo file> --system
+./fp_turbo.py --remove-repo <repo name>
+./fp_turbo.py --remove-repo <repo name> --system
+./fp_turbo.py --toggle-repo <enable/disable> --repo <repo name>
+./fp_turbo.py --toggle-repo <enable/disable> --repo <repo name> --system
+./fp_turbo.py --install <app id>
+./fp_turbo.py --install <app id> --repo <repo name>
+./fp_turbo.py --install <app id> --repo <repo name> --system
+./fp_turbo.py --remove <app id>
+./fp_turbo.py --remove <app id> --system
+./fp_turbo.py --update <app id>
+./fp_turbo.py --update <app id> --system
+./fp_turbo.py --id <app id> --list-file-perms
+./fp_turbo.py --id <app id> --add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
+./fp_turbo.py --id <app id> --remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
+./fp_turbo.py --id <app id> --list-other-perm-toggles <shared, sockets, devices, features, persistent>
+./fp_turbo.py --id <app id> --toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
+./fp_turbo.py --id <app id> --toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
+./fp_turbo.py --id <app id> --list-other-perm-values <environment, session_bus, system_bus>
+./fp_turbo.py --id <app id> --add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
+./fp_turbo.py --id <app id> --remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
+./fp_turbo.py --override --global-list-file-perms
+./fp_turbo.py --override --global-add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
+./fp_turbo.py --override --global-remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
+./fp_turbo.py --override --global-list-other-perm-toggles <shared, sockets, devices, features, persistent>
+./fp_turbo.py --override --global-toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
+./fp_turbo.py --override --global-toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc>
+./fp_turbo.py --override --global-list-other-perm-values <environment, session_bus, system_bus>
+./fp_turbo.py --override --global-add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
+./fp_turbo.py --override --global-remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own>
+./fp_turbo.py --id <app id> --list-file-perms --system
+./fp_turbo.py --id <app id> --add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
+./fp_turbo.py --id <app id> --remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
+./fp_turbo.py --id <app id> --add-file-perms "/path/to/directory" --perm-type persistent
+./fp_turbo.py --id <app id> --remove-file-perms "/path/to/directory" --perm-type persistent
+./fp_turbo.py --id <app id> --list-other-perm-toggles <shared, sockets, devices, features, persistent> --system
+./fp_turbo.py --id <app id> --toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
+./fp_turbo.py --id <app id> --toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
+./fp_turbo.py --id <app id> --list-other-perm-values <environment, session_bus, system_bus> --system
+./fp_turbo.py --id <app id> --add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
+./fp_turbo.py --id <app id> --remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
+./fp_turbo.py --override --global-list-file-perms --system
+./fp_turbo.py --override --global-add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
+./fp_turbo.py --override --global-remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
+./fp_turbo.py --override --global-list-other-perm-toggles <shared, sockets, devices, features, persistent> --system
+./fp_turbo.py --override --global-toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
+./fp_turbo.py --override --global-toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
+./fp_turbo.py --override --global-list-other-perm-values <environment, session_bus, system_bus> --system
+./fp_turbo.py --override --global-add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
+./fp_turbo.py --override --global-remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
 
-./libflatpak_query.py --get-all-portal-permissions
-./libflatpak_query.py --get-portal-permissions <portal>
-./libflatpak_query.py --get-app-portal-permissions --id <app id>
-./libflatpak_query.py --set-app-portal-permissions <portal> --portal-perm-value <yes/no> --id <app id>
+./fp_turbo.py --get-all-portal-permissions
+./fp_turbo.py --get-portal-permissions <portal>
+./fp_turbo.py --get-app-portal-permissions --id <app id>
+./fp_turbo.py --set-app-portal-permissions <portal> --portal-perm-value <yes/no> --id <app id>
 ```
