@@ -40,10 +40,10 @@ DONE:
 - Add global permission management backend
 - Add per-app permission management GUI
 - Add global permission management GUI
+- Add Package information page/section.
 
 TODO:
 - Update management GUI (individual apps can already be updated)
-- Package information page/section.
 - add about section
 - General GUI layout/theming improvements
 
