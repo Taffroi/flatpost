@@ -183,6 +183,8 @@ Common CLI combinations:
 ./libflatpak_query.py --id <app id> --list-file-perms --system
 ./libflatpak_query.py --id <app id> --add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
 ./libflatpak_query.py --id <app id> --remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths> --system
+./libflatpak_query.py --id <app id> --add-file-perms "/path/to/directory" --perm-type persistent
+./libflatpak_query.py --id <app id> --remove-file-perms "/path/to/directory" --perm-type persistent
 ./libflatpak_query.py --id <app id> --list-other-perm-toggles <shared, sockets, devices, features, persistent> --system
 ./libflatpak_query.py --id <app id> --toggle-other-perms True --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
 ./libflatpak_query.py --id <app id> --toggle-other-perms False --perm-type <shared, sockets, devices, features, persistent> --perm-option <network, ipc> --system
