@@ -1197,7 +1197,7 @@ def get_perm_key_file(app_id: str | None,  override=False, system=False) -> GLib
 
     return key_file
 
-def add_file_permissions(app_id: str, path: str, system=False) -> tuple[bool, str]:
+def add_file_permissions(app_id: str, path: str, perm_type=None, system=False) -> tuple[bool, str]:
     """
     Add filesystem permissions to a Flatpak application.
 
@@ -1214,7 +1214,7 @@ def add_file_permissions(app_id: str, path: str, system=False) -> tuple[bool, st
 
     try:
         key_file = get_perm_key_file(app_id, system)
-
+        perm_type = perm_type or "filesystem"
         # Handle special case for home directory
         if path.lower() == "host":
             filesystem_path = "host"
@@ -1229,32 +1229,35 @@ def add_file_permissions(app_id: str, path: str, system=False) -> tuple[bool, st
             filesystem_path = path.rstrip('/')
 
         if not key_file.has_group("Context"):
-            key_file.set_string("Context", "filesystems", "")
+            key_file.set_string("Context", perm_type, "")
 
         # Now get the keys
         context_keys = key_file.get_keys("Context")
 
         # Check if perm_type exists in the section
-        if "filesystems" not in str(context_keys):
+        if perm_type not in str(context_keys):
             # Create the key with an empty string
-            key_file.set_string("Context", "filesystems", "")
+            key_file.set_string("Context", perm_type, "")
 
         # Get existing filesystem paths
-        existing_paths = key_file.get_string("Context", "filesystems")
-        if existing_paths is None:
+        existing_paths = key_file.get_string("Context", perm_type)
+        if existing_paths is None or existing_paths == "":
             # If no filesystems entry exists, create it
-            key_file.set_string("Context", "filesystems", filesystem_path)
+            key_file.set_string("Context", perm_type, filesystem_path)
         else:
             # Split existing paths and check if our path already exists
+            print(existing_paths)
             existing_paths_list = existing_paths.split(';')
-
+            print(existing_paths_list)
             # Normalize paths for comparison (remove trailing slashes, convert to absolute paths)
             normalized_new_path = os.path.abspath(filesystem_path.rstrip('/'))
             normalized_existing_paths = [os.path.abspath(p.rstrip('/')) for p in existing_paths_list]
+            print(normalized_new_path)
+            print(normalized_existing_paths)
 
             # Only add if the path doesn't already exist
             if normalized_new_path not in normalized_existing_paths:
-                key_file.set_string("Context", "filesystems",
+                key_file.set_string("Context", perm_type,
                                   existing_paths + filesystem_path + ";")
 
         # Write the modified metadata back
@@ -1269,7 +1272,7 @@ def add_file_permissions(app_id: str, path: str, system=False) -> tuple[bool, st
         return False, f"Failed to modify permissions: {str(e)}"
 
 
-def remove_file_permissions(app_id: str, path: str, system=False) -> tuple[bool, str]:
+def remove_file_permissions(app_id: str, path: str, perm_type=None, system=False) -> tuple[bool, str]:
     """
     Remove filesystem permissions from a Flatpak application.
 
@@ -1285,6 +1288,7 @@ def remove_file_permissions(app_id: str, path: str, system=False) -> tuple[bool,
     """
     try:
         key_file = get_perm_key_file(app_id, system)
+        perm_type = perm_type or "filesystem"
 
         # Handle special case for home directory
         if path.lower() == "host":
@@ -1300,7 +1304,7 @@ def remove_file_permissions(app_id: str, path: str, system=False) -> tuple[bool,
             filesystem_path = path.rstrip('/')
 
         # Get existing filesystem paths
-        existing_paths = key_file.get_string("Context", "filesystems")
+        existing_paths = key_file.get_string("Context", perm_type)
 
         if existing_paths is None:
             return True, f"No filesystem permissions to remove for {app_id}"
@@ -1322,9 +1326,9 @@ def remove_file_permissions(app_id: str, path: str, system=False) -> tuple[bool,
         new_permissions = ";".join(filtered_paths_list)
         if new_permissions:
         # Save changes
-            key_file.set_string("Context", "filesystems", new_permissions)
+            key_file.set_string("Context", perm_type, new_permissions)
         else:
-            key_file.remove_key("Context", "filesystems")
+            key_file.remove_key("Context", perm_type)
 
         # Write the modified metadata back
         try:
@@ -1576,6 +1580,9 @@ def add_permission_value(app_id: str, perm_type: str, value: str, system=False) 
             return False, "Value must be in format 'key=value'"
 
         key, val = parts
+
+        if val not in ['talk', 'own']:
+            return False, "Value must be in format 'key=value' with value as 'talk' or 'own'"
 
         # Set the value
         key_file.set_string(perm_type, key, val)
@@ -2141,10 +2148,7 @@ def portal_get_app_permissions(app_id: str):
 
     # Format and return the results
     if app_permissions:
-        success_message = f"\nFound permissions for {app_id}:\n"
-        for portal, permission in app_permissions.items():
-            success_message += f"- {portal}: {permission}\n"
-        return True, success_message.strip()
+        return True, app_permissions
 
     return False, f"No permissions found for {app_id} in any portal"
 
@@ -2239,11 +2243,11 @@ def main():
     parser.add_argument('--list-file-perms', action='store_true',
                        help='List configured file permissions for an app')
     parser.add_argument('--list-other-perm-toggles', type=str, metavar='PERM_NAME',
-                       help='List configured other permission toggles for an app (e.g. "shared", "sockets", "devices", "features", "persistent")')
+                       help='List configured other permission toggles for an app (e.g. "shared", "sockets", "devices", "features")')
     parser.add_argument('--toggle-other-perms', type=str, metavar=('ENABLE/DISABLE'),
                         help='Toggle other permissions on/off (True/False)')
     parser.add_argument('--perm-type', type=str,
-                        help='Type of permission to toggle (shared, sockets, devices, features)')
+                        help='Type of permission to toggle (shared, sockets, devices, features, persistent)')
     parser.add_argument('--perm-option', type=str,
                         help='Specific permission option to toggle (e.g. network, ipc)')
     parser.add_argument('--list-other-perm-values', type=str, metavar='PERM_NAME',
@@ -2262,7 +2266,7 @@ def main():
     parser.add_argument('--global-list-file-perms', action='store_true',
                        help='List configured file permissions for an app')
     parser.add_argument('--global-list-other-perm-toggles', type=str, metavar='PERM_NAME',
-                       help='List configured other permission toggles for an app (e.g. "shared", "sockets", "devices", "features", "persistent")')
+                       help='List configured other permission toggles for an app (e.g. "shared", "sockets", "devices", "features")')
     parser.add_argument('--global-toggle-other-perms', type=str, metavar=('ENABLE/DISABLE'),
                         help='Toggle other permissions on/off (True/False)')
     parser.add_argument('--global-list-other-perm-values', type=str, metavar='PERM_NAME',
@@ -2538,14 +2542,14 @@ def handle_subcategories(args, searcher):
 
 def handle_add_file_perms(args, searcher):
     try:
-        success, message = add_file_permissions(args.id, args.add_file_perms, args.system)
+        success, message = add_file_permissions(args.id, args.add_file_perms, args.perm_type, args.system)
         print(f"{message}")
     except GLib.Error as e:
         print(f"{str(e)}")
 
 def handle_remove_file_perms(args, searcher):
     try:
-        success, message = remove_file_permissions(args.id, args.remove_file_perms, args.system)
+        success, message = remove_file_permissions(args.id, args.remove_file_perms, args.perm_type, args.system)
         print(f"{message}")
     except GLib.Error as e:
         print(f"{str(e)}")

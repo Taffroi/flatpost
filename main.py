@@ -313,6 +313,7 @@ class MainWindow(Gtk.Window):
         self.create_panels()
 
         self.refresh_data()
+        #self.refresh_local()
 
         # Select Trending by default
         self.select_default_category()
@@ -1372,7 +1373,7 @@ class MainWindow(Gtk.Window):
                     condition=lambda x: True
                 )
                 add_rm_icon = "list-remove"
-                add_rm_style = "dark-remove-buton"
+                add_rm_style = "dark-remove-button"
             else:
                 button = self.create_button(
                     self.on_install_clicked,
@@ -1388,6 +1389,23 @@ class MainWindow(Gtk.Window):
                 button.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
                 button.get_style_context().add_class(add_rm_style)
             buttons_box.pack_end(button, False, False, 0)
+
+            # Install/Remove button
+            if is_installed:
+                button = self.create_button(
+                    self.on_app_options_clicked,
+                    app,
+                    None,
+                    condition=lambda x: True
+                )
+                add_options_icon = "system-run"
+                add_options_style = "dark-remove-button"
+
+                if button:
+                    use_icon = Gio.Icon.new_for_string(add_options_icon)
+                    button.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                    button.get_style_context().add_class(add_options_style)
+                buttons_box.pack_end(button, False, False, 0)
 
             # Add Update button if available
             if is_updatable:
@@ -1648,6 +1666,525 @@ class MainWindow(Gtk.Window):
             thread.start()
 
         dialog.destroy()
+
+    def _add_bus_section(self, app_id, app, listbox, section_title, perm_type):
+        """Helper method to add System Bus or Session Bus section"""
+        # Add separator
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        listbox.add(sep)
+
+        # Add section header
+        row_header = Gtk.ListBoxRow(selectable=False)
+        box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+                            use_markup=True, xalign=0)
+        box_header.pack_start(label_header, True, True, 0)
+        row_header.add(box_header)
+        listbox.add(row_header)
+
+        # Get permissions
+        success, perms = libflatpak_query.list_other_perm_values(app_id, perm_type, self.system_mode)
+        if not success:
+            perms = {"paths": []}
+
+        # Add Talks section
+        talks_row = Gtk.ListBoxRow(selectable=False)
+        talks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        talks_row.add(talks_box)
+
+        talks_header = Gtk.Label(label="Talks", xalign=0)
+        talks_box.pack_start(talks_header, False, False, 0)
+
+        # Add separator between header and paths
+        talks_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
+                            False, False, 0)
+
+        # Add talk paths
+        for path in perms["paths"]:
+            if "talk" in path:
+                row = Gtk.ListBoxRow(selectable=False)
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                hbox.pack_start(vbox, True, True, 0)
+
+                label = Gtk.Label(label=path.split("=")[0], xalign=0)
+                vbox.pack_start(label, True, True, 0)
+
+                btn = Gtk.Button(label="Remove")
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
+                hbox.pack_end(btn, False, True, 0)
+
+                talks_box.add(row)
+
+        listbox.add(talks_row)
+
+        # Add Owns section
+        owns_row = Gtk.ListBoxRow(selectable=False)
+        owns_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        owns_row.add(owns_box)
+
+        owns_header = Gtk.Label(label="Owns", xalign=0)
+        owns_box.pack_start(owns_header, False, False, 0)
+
+        # Add separator between header and paths
+        owns_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
+                        False, False, 0)
+
+        # Add own paths
+        for path in perms["paths"]:
+            if "own" in path:
+                row = Gtk.ListBoxRow(selectable=False)
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                hbox.pack_start(vbox, True, True, 0)
+
+                label = Gtk.Label(label=path.split("=")[0], xalign=0)
+                vbox.pack_start(label, True, True, 0)
+
+                btn = Gtk.Button(label="Remove")
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
+                hbox.pack_end(btn, False, True, 0)
+
+                owns_box.add(row)
+
+        owns_row.show_all()
+        listbox.add(owns_row)
+
+        # Add add button
+        add_path_row = Gtk.ListBoxRow(selectable=False)
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+        add_path_row.add(hbox)
+
+        btn = Gtk.Button(label="Add Path")
+        btn.connect("clicked", self._on_add_path, app_id, app, perm_type)
+        hbox.pack_end(btn, False, True, 0)
+
+        listbox.add(add_path_row)
+
+    def _add_path_section(self, app_id, app, listbox, section_title, perm_type):
+        """Helper method to add sections with paths (Persistent, Environment)"""
+        # Add separator
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        listbox.add(sep)
+
+        # Add section header
+        row_header = Gtk.ListBoxRow(selectable=False)
+        box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+                            use_markup=True, xalign=0)
+        box_header.pack_start(label_header, True, True, 0)
+        row_header.add(box_header)
+        listbox.add(row_header)
+
+        # Get permissions
+        if perm_type == "persistent":
+            success, perms = libflatpak_query.list_other_perm_toggles(app_id, perm_type, self.system_mode)
+        else:
+            success, perms = libflatpak_query.list_other_perm_values(app_id, perm_type, self.system_mode)
+        if not success:
+            perms = {"paths": []}
+
+        # Add paths
+        for path in perms["paths"]:
+            row = Gtk.ListBoxRow(selectable=False)
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+            row.add(hbox)
+
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            hbox.pack_start(vbox, True, True, 0)
+
+            label = Gtk.Label(label=path, xalign=0)
+            vbox.pack_start(label, True, True, 0)
+
+            btn = Gtk.Button(label="Remove")
+            btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
+            hbox.pack_end(btn, False, True, 0)
+
+            listbox.add(row)
+
+        # Add add button
+        row = Gtk.ListBoxRow(selectable=False)
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+        row.add(hbox)
+
+        btn = Gtk.Button(label="Add Path")
+        btn.connect("clicked", self._on_add_path, app_id, app, perm_type)
+        hbox.pack_end(btn, False, True, 0)
+
+        listbox.add(row)
+
+    def _add_filesystem_section(self, app_id, app, listbox, section_title):
+        """Helper method to add the Filesystems section"""
+        # Add separator
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        listbox.add(sep)
+
+        # Add section header
+        row_header = Gtk.ListBoxRow(selectable=False)
+        box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+                            use_markup=True, xalign=0)
+        box_header.pack_start(label_header, True, True, 0)
+        row_header.add(box_header)
+        listbox.add(row_header)
+
+        # Get filesystem permissions
+        success, perms = libflatpak_query.list_file_perms(app_id, self.system_mode)
+        if not success:
+            perms = {"paths": [], "special_paths": []}
+
+        # Add special paths as toggles
+        special_paths = [
+            ("All user files", "home", "Access to all user files"),
+            ("All system files", "host", "Access to all system files"),
+            ("All system libraries, executables and static data", "host-os", "Access to system libraries and executables"),
+            ("All system configurations", "host-etc", "Access to system configurations")
+        ]
+
+        for display_text, option, description in special_paths:
+            row = Gtk.ListBoxRow(selectable=False)
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+            row.add(hbox)
+
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            hbox.pack_start(vbox, True, True, 0)
+
+            label = Gtk.Label(label=display_text, xalign=0)
+            desc = Gtk.Label(label=description, xalign=0)
+            vbox.pack_start(label, True, True, 0)
+            vbox.pack_start(desc, True, True, 0)
+
+            switch = Gtk.Switch()
+            switch.props.valign = Gtk.Align.CENTER
+            switch.set_active(option in perms["special_paths"])
+            switch.set_sensitive(True)
+            switch.connect("state-set", self._on_switch_toggled, app_id, "filesystems", option)
+            hbox.pack_end(switch, False, True, 0)
+
+            listbox.add(row)
+
+        # Add normal paths with remove buttons
+        for path in perms["paths"]:
+            if path != "":
+                row = Gtk.ListBoxRow(selectable=False)
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                hbox.pack_start(vbox, True, True, 0)
+
+                label = Gtk.Label(label=path, xalign=0)
+                vbox.pack_start(label, True, True, 0)
+
+                btn = Gtk.Button(label="Remove")
+                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+                hbox.pack_end(btn, False, True, 0)
+
+                listbox.add(row)
+
+        # Add add button
+        row = Gtk.ListBoxRow(selectable=False)
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+        row.add(hbox)
+
+        btn = Gtk.Button(label="Add Path")
+        btn.connect("clicked", self._on_add_path, app_id, app)
+        hbox.pack_end(btn, False, True, 0)
+
+        listbox.add(row)
+
+
+    def on_app_options_clicked(self, button, app):
+        """Handle the app options click"""
+        details = app.get_details()
+        app_id = details['id']
+
+        # Create window (as before)
+        self.options_window = Gtk.Window(title=f"{details['name']} Settings")
+        self.options_window.set_default_size(500, 700)
+
+        # Set subtitle
+        header_bar = Gtk.HeaderBar(title=f"{details['name']} Settings",
+                                subtitle="List of resources selectively granted to the application")
+        header_bar.set_show_close_button(True)
+        self.options_window.set_titlebar(header_bar)
+
+        # Create main container with padding
+        box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        box_outer.set_border_width(20)
+        self.options_window.add(box_outer)
+
+        # Create scrolled window for content
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+
+        # Create list box for options
+        listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+
+        # Add Portals section first
+        self._add_section(app_id, listbox, "Portals", section_options=[
+            ("Background", "background", "Can run in the background"),
+            ("Notifications", "notifications", "Can send notifications"),
+            ("Microphone", "microphone", "Can listen to your microphone"),
+            ("Speakers", "speakers", "Can play sounds to your speakers"),
+            ("Camera", "camera", "Can record videos with your camera"),
+            ("Location", "location", "Can access your location")
+        ])
+
+        # Add other sections with correct permission types
+        self._add_section(app_id, listbox, "Shared", "shared", [
+            ("Network", "network", "Can communicate over network"),
+            ("Inter-process communications", "ipc", "Can communicate with other applications")
+        ])
+
+        self._add_section(app_id, listbox, "Sockets", "sockets", [
+            ("X11 windowing system", "x11", "Can access X11 display server"),
+            ("Wayland windowing system", "wayland", "Can access Wayland display server"),
+            ("Fallback to X11 windowing system", "fallback-x11", "Can fallback to X11 if Wayland unavailable"),
+            ("PulseAudio sound server", "pulseaudio", "Can access PulseAudio sound system"),
+            ("D-Bus session bus", "session-bus", "Can communicate with session D-Bus"),
+            ("D-Bus system bus", "system-bus", "Can communicate with system D-Bus"),
+            ("Secure Shell agent", "ssh-auth", "Can access SSH authentication agent"),
+            ("Smart cards", "pcsc", "Can access smart card readers"),
+            ("Printing system", "cups", "Can access printing subsystem"),
+            ("GPG-Agent directories", "gpg-agent", "Can access GPG keyring"),
+            ("Inherit Wayland socket", "inherit-wayland-socket", "Can inherit existing Wayland socket")
+        ])
+
+        self._add_section(app_id, listbox, "Devices", "devices", [
+            ("GPU Acceleration", "dri", "Can use hardware graphics acceleration"),
+            ("Input devices", "input", "Can access input devices"),
+            ("Virtualization", "kvm", "Can access virtualization services"),
+            ("Shared memory", "shm", "Can use shared memory"),
+            ("All devices (e.g. webcam)", "all", "Can access all device files")
+        ])
+
+        self._add_section(app_id, listbox, "Features", "features", [
+            ("Development syscalls", "devel", "Can perform development operations"),
+            ("Programs from other architectures", "multiarch", "Can execute programs from other architectures"),
+            ("Bluetooth", "bluetooth", "Can access Bluetooth hardware"),
+            ("Controller Area Network bus", "canbus", "Can access CAN bus"),
+            ("Application Shared Memory", "per-app-dev-shm", "Can use shared memory for IPC")
+        ])
+
+        # Add Filesystems section
+        self._add_filesystem_section(app_id, app, listbox, "Filesystems")
+        self._add_path_section(app_id, app, listbox, "Persistent", "persistent")
+        self._add_path_section(app_id, app, listbox, "Environment", "environment")
+        self._add_bus_section(app_id, app, listbox, "System Bus", "system_bus")
+        self._add_bus_section(app_id, app, listbox, "Session Bus", "session_bus")
+
+        # Add widgets to container
+        box_outer.pack_start(scrolled, True, True, 0)
+        scrolled.add(listbox)
+
+        # Connect destroy signal
+        self.options_window.connect("destroy", lambda w: w.destroy())
+
+        # Show window
+        self.options_window.show_all()
+
+    def _add_section(self, app_id, listbox, section_title, perm_type=None, section_options=None):
+        """Helper method to add a section with multiple options"""
+        # Add separator
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        listbox.add(sep)
+
+        # Add section header
+        row_header = Gtk.ListBoxRow(selectable=False)
+        box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+                            use_markup=True, xalign=0)
+        box_header.pack_start(label_header, True, True, 0)
+        row_header.add(box_header)
+        listbox.add(row_header)
+
+        # Handle portal permissions specially
+        if section_title == "Portals":
+            success, perms = libflatpak_query.portal_get_app_permissions(app_id)
+            if not success:
+                perms = {}
+        elif section_title in ["Persistent", "Environment", "System Bus", "Session Bus"]:
+            success, perms = libflatpak_query.list_other_perm_toggles(app_id, perm_type, self.system_mode)
+            if not success:
+                perms = {"paths": []}
+        else:
+            success, perms = libflatpak_query.list_other_perm_toggles(app_id, perm_type, self.system_mode)
+            if not success:
+                perms = {"paths": []}
+
+        if section_options:
+            # Add options
+            for display_text, option, description in section_options:
+                row = Gtk.ListBoxRow(selectable=False)
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                hbox.pack_start(vbox, True, True, 0)
+
+                label = Gtk.Label(label=display_text, xalign=0)
+                desc = Gtk.Label(label=description, xalign=0)
+                vbox.pack_start(label, True, True, 0)
+                vbox.pack_start(desc, True, True, 0)
+
+                switch = Gtk.Switch()
+                switch.props.valign = Gtk.Align.CENTER
+
+                # Handle portal permissions differently
+                if section_title == "Portals":
+                    if option in perms:
+                        switch.set_active(perms[option] == 'yes')
+                        switch.set_sensitive(True)
+                    else:
+                        switch.set_sensitive(False)
+                else:
+                    switch.set_active(option in [p.lower() for p in perms["paths"]])
+                    switch.set_sensitive(True)
+
+                switch.connect("state-set", self._on_switch_toggled, app_id, perm_type, option)
+                hbox.pack_end(switch, False, True, 0)
+
+                listbox.add(row)
+
+    def _on_switch_toggled(self, switch, state, app_id, perm_type, option):
+        """Handle switch toggle events"""
+        if perm_type is None:  # Portal section
+            success, message = libflatpak_query.portal_set_app_permissions(
+                option.lower(),
+                app_id,
+                "yes" if state else "no"
+            )
+        else:
+            success, message = libflatpak_query.toggle_other_perms(
+                app_id,
+                perm_type,
+                option.lower(),
+                state,
+                self.system_mode
+            )
+
+        if not success:
+            switch.set_active(not state)
+            print(f"Error: {message}")
+
+    def _on_remove_path(self, button, app_id, app, path, perm_type=None):
+        """Handle remove path button click"""
+        if perm_type:
+            if perm_type == "persistent":
+                success, message = libflatpak_query.remove_file_permissions(
+                    app_id,
+                    path,
+                    "persistent",
+                    self.system_mode
+                )
+            else:
+                success, message = libflatpak_query.remove_permission_value(
+                    app_id,
+                    perm_type,
+                    path,
+                    self.system_mode
+                )
+        else:
+            success, message = libflatpak_query.remove_file_permissions(
+                app_id,
+                path,
+                None,
+                self.system_mode
+            )
+        if success:
+            # Refresh the current window
+            self.options_window.destroy()
+            self.on_app_options_clicked(None, app)
+
+    def _on_add_path(self, button, app_id, app, perm_type=None):
+        """Handle add path button click"""
+        dialog = Gtk.Dialog(
+            title="Add Filesystem Path",
+            parent=self.options_window,
+            modal=True,
+            destroy_with_parent=True,
+        )
+
+        # Add buttons separately
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Add", Gtk.ResponseType.OK)
+
+        entry = Gtk.Entry()
+        entry.set_placeholder_text("Enter filesystem path")
+        dialog.vbox.pack_start(entry, True, True, 0)
+        dialog.show_all()
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            path = entry.get_text()
+            if perm_type:
+                if perm_type == "persistent":
+                    success, message = libflatpak_query.add_file_permissions(
+                        app_id,
+                        path,
+                        "persistent",
+                        self.system_mode
+                    )
+                else:
+                    success, message = libflatpak_query.add_permission_value(
+                        app_id,
+                        perm_type,
+                        path,
+                        self.system_mode
+                    )
+            else:
+                success, message = libflatpak_query.add_file_permissions(
+                    app_id,
+                    path,
+                    None,
+                    self.system_mode
+                )
+            if success:
+                # Refresh the current window
+                self.options_window.destroy()
+                self.on_app_options_clicked(None, app)
+                message_type = Gtk.MessageType.INFO
+            else:
+                message_type = Gtk.MessageType.ERROR
+            if message:
+                error_dialog = Gtk.MessageDialog(
+                    transient_for=None,  # Changed from self
+                    modal=True,
+                    destroy_with_parent=True,
+                    message_type=message_type,
+                    buttons=Gtk.ButtonsType.OK,
+                    text=message
+                )
+                error_dialog.run()
+                error_dialog.destroy()
+        dialog.destroy()
+
+    def _add_option(self, parent_box, label_text, description):
+        """Helper method to add an individual option"""
+        row = Gtk.ListBoxRow(selectable=False)
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+        row.add(hbox)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hbox.pack_start(vbox, True, True, 0)
+
+        label = Gtk.Label(label=label_text, xalign=0)
+        desc = Gtk.Label(label=description, xalign=0)
+        vbox.pack_start(label, True, True, 0)
+        vbox.pack_start(desc, True, True, 0)
+
+        switch = Gtk.Switch()
+        switch.props.valign = Gtk.Align.CENTER
+        hbox.pack_end(switch, False, True, 0)
+
+        parent_box.add(row)
+        return row, switch
 
     def on_update_clicked(self, button, app):
         """Handle the Remove button click with removal options"""
