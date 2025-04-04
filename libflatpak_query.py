@@ -1206,6 +1206,7 @@ def add_file_permissions(app_id: str, path: str, perm_type=None, system=False) -
         path (str): The path to grant access to. Can be:
             - "home" for home directory access
             - "/path/to/directory" for custom directory access
+        perm_type (str): The type of permissions to remove (e.g. "filesystems", "persistent") default is "filesystems"
         system (bool): Whether to modify system-wide or user installation
 
     Returns:
@@ -1214,7 +1215,7 @@ def add_file_permissions(app_id: str, path: str, perm_type=None, system=False) -
 
     try:
         key_file = get_perm_key_file(app_id, system)
-        perm_type = perm_type or "filesystem"
+        perm_type = perm_type or "filesystems"
         # Handle special case for home directory
         if path.lower() == "host":
             filesystem_path = "host"
@@ -1277,6 +1278,7 @@ def remove_file_permissions(app_id: str, path: str, perm_type=None, system=False
         path (str): The path to revoke access to. Can be:
             - "home" for home directory access
             - "/path/to/directory" for custom directory access
+        perm_type (str): The type of permissions to remove (e.g. "filesystems", "persistent") default is "filesystems"
         system (bool): Whether to modify system-wide or user installation
 
     Returns:
@@ -1284,7 +1286,7 @@ def remove_file_permissions(app_id: str, path: str, perm_type=None, system=False
     """
     try:
         key_file = get_perm_key_file(app_id, system)
-        perm_type = perm_type or "filesystem"
+        perm_type = perm_type or "filesystems"
 
         # Handle special case for home directory
         if path.lower() == "host":
@@ -1637,7 +1639,7 @@ def remove_permission_value(app_id: str, perm_type: str, value: str, system=Fals
     except GLib.Error as e:
         return False, f"Error removing permission: {str(e)}"
 
-def global_add_file_permissions(path: str, override=True, system=False) -> tuple[bool, str]:
+def global_add_file_permissions(path: str, perm_type=None, override=True, system=False) -> tuple[bool, str]:
     """
     Add filesystem permissions to all Flatpak applications globally.
 
@@ -1645,6 +1647,7 @@ def global_add_file_permissions(path: str, override=True, system=False) -> tuple
         path (str): The path to grant access to. Can be:
             - "home" for home directory access
             - "/path/to/directory" for custom directory access
+        perm_type (str): The type of permissions to remove (e.g. "filesystems", "persistent") default is "filesystems"
         override (bool): Whether to use global metadata file instead of per-app.
         system (bool): Whether to modify system-wide or user installation
 
@@ -1654,7 +1657,7 @@ def global_add_file_permissions(path: str, override=True, system=False) -> tuple
 
     try:
         key_file = get_perm_key_file(None, override, system)
-
+        perm_type = perm_type or "filesystems"
         # Handle special case for home directory
         if path.lower() == "host":
             filesystem_path = "host"
@@ -1669,21 +1672,21 @@ def global_add_file_permissions(path: str, override=True, system=False) -> tuple
             filesystem_path = path.rstrip('/')
 
         if not key_file.has_group("Context"):
-            key_file.set_string("Context", "filesystems", "")
+            key_file.set_string("Context", perm_type, "")
 
         # Now get the keys
         context_keys = key_file.get_keys("Context")
 
         # Check if perm_type exists in the section
-        if "filesystems" not in str(context_keys):
+        if perm_type not in str(context_keys):
             # Create the key with an empty string
-            key_file.set_string("Context", "filesystems", "")
+            key_file.set_string("Context", perm_type, "")
 
         # Get existing filesystem paths
-        existing_paths = key_file.get_string("Context", "filesystems")
-        if existing_paths is None:
+        existing_paths = key_file.get_string("Context", perm_type)
+        if existing_paths is None or existing_paths == "":
             # If no filesystems entry exists, create it
-            key_file.set_string("Context", "filesystems", filesystem_path)
+            key_file.set_string("Context", perm_type, filesystem_path)
         else:
             # Split existing paths and check if our path already exists
             existing_paths_list = existing_paths.split(';')
@@ -1694,7 +1697,7 @@ def global_add_file_permissions(path: str, override=True, system=False) -> tuple
 
             # Only add if the path doesn't already exist
             if normalized_new_path not in normalized_existing_paths:
-                key_file.set_string("Context", "filesystems",
+                key_file.set_string("Context", perm_type,
                                   existing_paths + filesystem_path + ";")
 
         # Write the modified metadata back
@@ -1709,7 +1712,7 @@ def global_add_file_permissions(path: str, override=True, system=False) -> tuple
         return False, f"Failed to modify permissions: {str(e)}"
 
 
-def global_remove_file_permissions(path: str, override=True, system=False) -> tuple[bool, str]:
+def global_remove_file_permissions(path: str, perm_type=None, override=True, system=False) -> tuple[bool, str]:
     """
     Remove filesystem permissions from all Flatpak applications globally.
 
@@ -1717,6 +1720,7 @@ def global_remove_file_permissions(path: str, override=True, system=False) -> tu
         path (str): The path to revoke access to. Can be:
             - "home" for home directory access
             - "/path/to/directory" for custom directory access
+        perm_type (str): The type of permissions to remove (e.g. "filesystems", "persistent") default is "filesystems"
         override (bool): Whether to use global metadata file instead of per-app.
         system (bool): Whether to modify system-wide or user installation
 
@@ -1725,7 +1729,7 @@ def global_remove_file_permissions(path: str, override=True, system=False) -> tu
     """
     try:
         key_file = get_perm_key_file(None, override, system)
-
+        perm_type = perm_type or "filesystems"
         # Handle special case for home directory
         if path.lower() == "host":
             filesystem_path = "host"
@@ -1740,7 +1744,7 @@ def global_remove_file_permissions(path: str, override=True, system=False) -> tu
             filesystem_path = path.rstrip('/')
 
         # Get existing filesystem paths
-        existing_paths = key_file.get_string("Context", "filesystems")
+        existing_paths = key_file.get_string("Context", perm_type)
 
         if existing_paths is None:
             return True, "No filesystem permissions to remove globally"
@@ -1762,9 +1766,9 @@ def global_remove_file_permissions(path: str, override=True, system=False) -> tu
         new_permissions = ";".join(filtered_paths_list)
         if new_permissions:
         # Save changes
-            key_file.set_string("Context", "filesystems", new_permissions)
+            key_file.set_string("Context", perm_type, new_permissions)
         else:
-            key_file.remove_key("Context", "filesystems")
+            key_file.remove_key("Context", perm_type)
 
         # Write the modified metadata back
         try:
@@ -2017,6 +2021,9 @@ def global_add_permission_value(perm_type: str, value: str, override=True, syste
 
         key, val = parts
 
+        if val not in ['talk', 'own']:
+            return False, "Value must be in format 'key=value' with value as 'talk' or 'own'"
+
         # Set the value
         key_file.set_string(perm_type, key, val)
 
@@ -2026,6 +2033,7 @@ def global_add_permission_value(perm_type: str, value: str, override=True, syste
         return True, f"Successfully added {value} to {perm_type} section"
     except GLib.Error as e:
         return False, f"Error adding permission: {str(e)}"
+
 
 def global_remove_permission_value(perm_type: str, value: str, override=True, system=False) -> tuple[bool, str]:
     """
