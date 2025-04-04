@@ -130,6 +130,7 @@ class AppStreamPackage:
         self.icon_path_64 = self._get_icon_cache_path("64x64")
         self.icon_filename = self._get_icon_filename()
         self.description = self.component.get_description()
+        self.screenshots = self.component.get_screenshots_all()
 
         # Get URLs from the component
         self.urls = self._get_urls()
@@ -248,7 +249,9 @@ class AppStreamPackage:
             "categories": self.categories,
             "bundle_id": self.flatpak_bundle,
             "match_type": self.match.name,
-            "repo": self.repo_name
+            "repo": self.repo_name,
+            "screenshots": self.screenshots,
+            "component": self.component,
         }
 
 class AppstreamSearcher:
@@ -2209,6 +2212,14 @@ def portal_lookup_all():
             return []
     return portal_permissions
 
+def screenshot_details(screenshot):
+    # Try to get the image with required parameters
+    try:
+        # get_image() requires 4 arguments: width, height, scale, device_scale
+        image = screenshot.get_image(800, 600, 1.0)
+        return image
+    except Exception as e:
+        print(f"Error getting image: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description='Search Flatpak packages')
@@ -2736,6 +2747,7 @@ def handle_get_app_portal_permissions(args, searcher):
     except dbus.exceptions.DBusException as e:
         print(f"{str(e)}")
 
+
 def handle_search(args, searcher):
     if args.repo:
         search_results = searcher.search_flatpak(args.id, args.repo)
@@ -2764,6 +2776,18 @@ def handle_search(args, searcher):
             print(f"Bundle ID: {details['bundle_id']}")
             print(f"Match Type: {details['match_type']}")
             print(f"Repo: {details['repo']}")
+            print("Screenshots:")
+            for i, screenshot in enumerate(details['screenshots'], 1):
+                print(f"\nScreenshot #{i}:")
+                image = screenshot_details(screenshot)
+                # Get image properties using the correct methods
+                print("\nImage Properties:")
+                print(f"URL: {image.get_url()}")
+                print(f"Width: {image.get_width()}")
+                print(f"Height: {image.get_height()}")
+                print(f"Scale: {image.get_scale()}")
+                print(f"Locale: {image.get_locale()}")
+
             print("-" * 50)
 
 if __name__ == "__main__":

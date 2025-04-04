@@ -13,7 +13,9 @@ import json
 import threading
 import subprocess
 from pathlib import Path
-
+from html.parser import HTMLParser
+import requests
+import os
 
 class MainWindow(Gtk.Window):
     def __init__(self):
@@ -290,6 +292,33 @@ class MainWindow(Gtk.Window):
                 border: 0px;
                 margin: 0px;
                 padding-right: 20px;
+                background: none;
+            }
+            .screenshot-bullet {
+                color: #18A3FF;
+                font-size: 30px;
+                padding: 4px;
+                border-radius: 50%;
+                transition: all 0.2s ease;
+            }
+            .screenshot-bullet:hover {
+                background-color: rgba(24, 163, 255, 0.2);
+            }
+            .details-window {
+                border: 0px;
+                margin: 0px;
+                padding: 20px;
+                background: none;
+            }
+            .details-textview {
+                background-color: transparent;
+                border-width: 0;
+                border-radius: 0;
+            }
+            .permissions-window {
+                border: 0px;
+                margin: 0px;
+                padding: 20px;
                 background: none;
             }
         """)
@@ -1916,7 +1945,7 @@ class MainWindow(Gtk.Window):
 
         # Create window (as before)
         self.options_window = Gtk.Window(title=f"{details['name']} Settings")
-        self.options_window.set_default_size(500, 700)
+        self.options_window.set_default_size(600, 800)
 
         # Set subtitle
         header_bar = Gtk.HeaderBar(title=f"{details['name']} Settings",
@@ -1936,6 +1965,7 @@ class MainWindow(Gtk.Window):
         # Create list box for options
         listbox = Gtk.ListBox()
         listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.get_style_context().add_class("permissions-window")
 
         # Add Portals section first
         self._add_section(app_id, listbox, "Portals", section_options=[
@@ -2433,7 +2463,7 @@ class MainWindow(Gtk.Window):
 
         # Create window (as before)
         self.global_options_window = Gtk.Window(title="Global Setting Overrides")
-        self.global_options_window.set_default_size(500, 700)
+        self.global_options_window.set_default_size(600, 800)
 
         # Set subtitle
         header_bar = Gtk.HeaderBar(title="Global Setting Overrides",
@@ -2453,6 +2483,7 @@ class MainWindow(Gtk.Window):
         # Create list box for options
         listbox = Gtk.ListBox()
         listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.get_style_context().add_class("permissions-window")
 
         # No portals section. Portals are only handled on per-user basis.
 
@@ -2740,12 +2771,312 @@ class MainWindow(Gtk.Window):
 
         dialog.destroy()
 
+    def download_screenshot(self, url, local_path):
+        """Download a screenshot and save it locally"""
+        try:
+            # Download the image
+            response = requests.get(url)
+            response.raise_for_status()
+
+            # Create the directory if it doesn't exist
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+
+            # Save the image
+            with open(local_path, 'wb') as f:
+                f.write(response.content)
+
+            return True
+        except Exception as e:
+            print(f"Error downloading screenshot {url}: {e}")
+            return False
+
+    def create_screenshot_slideshow(self, screenshots, app_id):
+        # Create main container for slideshow
+        slideshow_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        slideshow_box.set_border_width(0)
+
+        # Create main frame for the current screenshot (removed border)
+        main_frame = Gtk.Frame()
+        main_frame.set_size_request(400, 300)  # Adjust size as needed
+        main_frame.set_shadow_type(Gtk.ShadowType.NONE)
+        slideshow_box.pack_start(main_frame, True, True, 0)
+
+        # Create image for current screenshot
+        current_image = Gtk.Image()
+        current_image.set_size_request(400, 300)  # Adjust size as needed
+        main_frame.add(current_image)
+
+        # Create box for navigation dots
+        nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        nav_box.set_halign(Gtk.Align.CENTER)
+        nav_box.set_border_width(0)  # Remove border
+        slideshow_box.pack_start(nav_box, False, True, 0)
+
+        # Create navigation dots
+        dots = []
+        for i in range(len(screenshots)):
+            # Create new EventBox for each dot
+            event_box = Gtk.EventBox()
+            event_box.set_border_width(0)
+
+            # Create bullet using Label
+            bullet = Gtk.Label(label="•")
+            bullet.get_style_context().add_class("screenshot-bullet")
+            bullet.set_opacity(0.3 if i > 0 else 1.0)  # First dot is active
+
+            # Add bullet to event box
+            event_box.add(bullet)
+
+            # Connect navigation
+            event_box.connect('button-release-event',
+                            lambda w, e, idx=i: self._switch_screenshot(
+                                current_image, screenshots, dots, idx, app_id))
+
+            # Add event box to nav box
+            nav_box.pack_start(event_box, False, True, 0)
+
+            # Store the event box
+            dots.append(event_box)
+
+        # Load first screenshot
+        self._load_screenshot(current_image, screenshots[0], app_id)
+
+        return slideshow_box
+
+    def _load_screenshot(self, image, screenshot, app_id):
+        """Helper method to load a single screenshot"""
+        home_dir = os.path.expanduser("~")
+
+        # Get URL using fp_turbo.screenshot_details() like in your original code
+        image_data = fp_turbo.screenshot_details(screenshot)
+        url = image_data.get_url()
+
+        local_path = f"{home_dir}/.local/share/flatshop/app-screenshots/{app_id}/{os.path.basename(url)}"
+
+        if os.path.exists(local_path):
+            image.set_from_file(local_path)
+        else:
+            if fp_turbo.check_internet():
+                try:
+                    if not self.download_screenshot(url, local_path):
+                        print("Failed to download screenshot")
+                        return
+                    image.set_from_file(local_path)
+                except Exception:
+                    image.set_from_icon_name('image-x-generic', Gtk.IconSize.MENU)
+            else:
+                image.set_from_icon_name('image-x-generic', Gtk.IconSize.MENU)
+
+    def _switch_screenshot(self, image, screenshots, dots, index, app_id):
+        # Update dots opacity
+        for i, dot in enumerate(dots):
+            # Get the bullet label from the event box
+            bullet = dot.get_children()[0]
+            bullet.set_opacity(1.0 if i == index else 0.3)
+
+        # Load the new screenshot
+        self._load_screenshot(image, screenshots[index], app_id)
+
     def on_details_clicked(self, button, app):
-        """Handle the Details button click"""
         details = app.get_details()
-        print(f"Showing details for: {details['name']}")
-        # Implement details view here
-        # Could open a new window with extended information
+
+        # Create window
+        self.details_window = Gtk.Window(title=f"{details['name']}")
+        self.details_window.set_default_size(900, 600)
+
+        # Set header bar
+        header_bar = Gtk.HeaderBar(
+            title=f"{details['name']}",
+            subtitle="List of resources selectively granted to the application"
+        )
+        header_bar.set_show_close_button(True)
+        self.details_window.set_titlebar(header_bar)
+
+        # Main container with padding
+        box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box_outer.set_border_width(20)
+        box_outer.set_border_width(0)
+        self.details_window.add(box_outer)
+
+        # Scrolled window for content
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_border_width(0)
+        box_outer.pack_start(scrolled, True, True, 0)
+
+        # Content box
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content_box.set_border_width(0)
+        content_box.get_style_context().add_class("details-window")
+        scrolled.add(content_box)
+
+        # Icon section - New implementation
+        icon_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        icon_row.set_border_width(0)
+
+        icon_box = Gtk.Box()
+        icon_box.set_size_request(88, -1)
+
+        app_icon = Gio.Icon.new_for_string('package-x-generic-symbolic')
+        icon_widget = self.create_scaled_icon(app_icon, is_themed=True)
+
+        if details['icon_filename']:
+            if Path(details['icon_path_128'] + "/" + details['icon_filename']).exists():
+                icon_widget = self.create_scaled_icon(
+                    f"{details['icon_path_128']}/{details['icon_filename']}",
+                    is_themed=False
+                )
+
+        icon_widget.set_size_request(64, 64)
+        icon_box.pack_start(icon_widget, True, True, 0)
+
+        # Middle column - Name, Version, Developer
+        middle_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        name_label = Gtk.Label(label=f"{details['name']}")
+        name_label.get_style_context().add_class("large-title")
+        name_label.set_xalign(0)
+        version_label = Gtk.Label(label=f"Version {details['version']}")
+        version_label.set_xalign(0)
+        developer_label = Gtk.Label(label=f"Developer: {details['developer']}")
+        developer_label.set_xalign(0)
+
+        middle_column.pack_start(name_label, False, True, 0)
+        middle_column.pack_start(version_label, False, True, 0)
+        middle_column.pack_start(developer_label, False, True, 0)
+
+        # Right column - ID and Kind
+        right_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        id_label = Gtk.Label(label=f"ID: {details['id']}")
+        id_label.set_xalign(0)
+        kind_label = Gtk.Label(label=f"Kind: {details['kind']}")
+        kind_label.set_xalign(0)
+        right_column.pack_start(id_label, False, True, 0)
+        right_column.pack_start(kind_label, False, True, 0)
+
+        # Assemble the row
+        icon_row.pack_start(icon_box, False, False, 0)
+        icon_row.pack_start(middle_column, True, True, 0)
+        icon_row.pack_start(right_column, False, True, 0)
+
+        content_box.pack_start(icon_row, False, True, 0)
+
+        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+
+        # Add the slideshow after the icon
+        screenshot_slideshow = self.create_screenshot_slideshow(details['screenshots'], details['id'])
+        screenshot_slideshow.set_border_width(0)
+        content_box.pack_start(screenshot_slideshow, False, True, 0)
+
+        def create_text_section(title, text):
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+
+            title_label = Gtk.Label(label=f"{title}:")
+            title_label.set_xalign(0)
+
+            # Create a TextView for HTML content
+            text_view = Gtk.TextView()
+            text_view.set_editable(False)
+            text_view.set_cursor_visible(False)
+            text_view.set_wrap_mode(Gtk.WrapMode.WORD)
+
+            # Remove background
+            text_view.get_style_context().add_class("details-textview")
+
+            # Parse HTML and insert into TextView
+            buffer = text_view.get_buffer()
+            if title == "Description":
+                try:
+
+                    class TextExtractor(HTMLParser):
+                        def __init__(self):
+                            super().__init__()
+                            self.text = []
+
+                        def handle_data(self, data):
+                            self.text.append(data)
+
+                        def handle_starttag(self, tag, attrs):
+                            if tag == 'p':
+                                self.text.append('\n')
+                            elif tag == 'ul':
+                                self.text.append('\n')
+                            elif tag == 'li':
+                                self.text.append('• ')
+
+                        def handle_endtag(self, tag):
+                            if tag == 'li':
+                                self.text.append('\n')
+                            elif tag == 'ul':
+                                self.text.append('\n')
+
+                    # Parse the HTML
+                    parser = TextExtractor()
+                    parser.feed(text)
+                    parsed_text = ''.join(parser.text)
+
+                    # Add basic HTML styling
+                    buffer.set_text(parsed_text)
+                    text_view.set_left_margin(10)
+                    text_view.set_right_margin(10)
+                    text_view.set_pixels_above_lines(4)
+                    text_view.set_pixels_below_lines(4)
+
+                except Exception:
+                    # Fallback to plain text if HTML parsing fails
+                    buffer.set_text(text)
+            else:
+                buffer.set_text(text)
+
+            box.pack_start(title_label, False, True, 0)
+            box.pack_start(text_view, True, True, 0)
+            return box
+
+        def create_url_section(url_type, url):
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+
+            label_widget = Gtk.Label(label=f"{url_type.capitalize()}:")
+            label_widget.set_xalign(0)
+
+            # Create a clickable URL label
+            url_label = Gtk.Label(label=url)
+            url_label.set_use_underline(True)
+            url_label.set_use_markup(True)
+            url_label.set_markup(f'<span color="#18A3FF">{url}</span>')
+            url_label.set_halign(Gtk.Align.START)
+
+            # Connect click event
+            event_box = Gtk.EventBox()
+            event_box.add(url_label)
+            event_box.connect("button-release-event",
+                            lambda w, e: Gio.AppInfo.launch_default_for_uri(url))
+
+            box.pack_start(label_widget, False, True, 0)
+            box.pack_start(event_box, True, True, 0)
+            return box
+
+        summary_section = create_text_section("Summary", details['summary'])
+        content_box.pack_start(summary_section, False, True, 0)
+        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+
+        # URLs section
+        urls_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+
+        for url_type, url in details['urls'].items():
+            row = create_url_section(url_type, url)
+            urls_section.pack_start(row, False, True, 0)
+        urls_section.pack_start(create_url_section("Flathub Page", f"https://flathub.org/apps/details/{details['id']}"), False, True, 0)
+
+        content_box.pack_start(urls_section, False, True, 0)
+
+        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+
+        description_section = create_text_section("Description", details['description'])
+        content_box.pack_start(description_section, False, True, 0)
+
+        self.details_window.connect("destroy", lambda w: w.destroy())
+        self.details_window.show_all()
+        scrolled.get_vadjustment().set_value(0)
+
 
     def on_donate_clicked(self, button, app):
         """Handle the Donate button click"""
