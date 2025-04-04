@@ -1582,8 +1582,9 @@ def add_permission_value(app_id: str, perm_type: str, value: str, system=False) 
 
         key, val = parts
 
-        if val not in ['talk', 'own']:
-            return False, "Value must be in format 'key=value' with value as 'talk' or 'own'"
+        if perm_type in ['Session Bus Policy', 'System Bus Policy']:
+            if val not in ['talk', 'own']:
+                return False, "Value must be in format 'key=value' with value as 'talk' or 'own'"
 
         # Set the value
         key_file.set_string(perm_type, key, val)
@@ -2024,8 +2025,9 @@ def global_add_permission_value(perm_type: str, value: str, override=True, syste
 
         key, val = parts
 
-        if val not in ['talk', 'own']:
-            return False, "Value must be in format 'key=value' with value as 'talk' or 'own'"
+        if perm_type in ['Session Bus Policy', 'System Bus Policy']:
+            if val not in ['talk', 'own']:
+                return False, "Value must be in format 'key=value' with value as 'talk' or 'own'"
 
         # Set the value
         key_file.set_string(perm_type, key, val)
