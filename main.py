@@ -289,16 +289,10 @@ class MainWindow(Gtk.Window):
             }
 
             .app-repo-label {
-                border-radius: 4px;
-                margin: 2px;
-                padding: 2px 4px;
                 font-size: 0.8em;
             }
 
             .app-type-label {
-                border-radius: 4px;
-                margin: 2px;
-                padding: 2px 4px;
                 font-size: 0.8em;
             }
             .screenshot-bullet {
@@ -363,8 +357,8 @@ class MainWindow(Gtk.Window):
         # Create panels
         self.create_panels()
 
-        #self.refresh_data()
-        self.refresh_local()
+        self.refresh_data()
+        #self.refresh_local()
 
         # Select Trending by default
         self.select_default_category()
@@ -424,7 +418,7 @@ class MainWindow(Gtk.Window):
         searchentry = Gtk.SearchEntry()
         searchentry.set_placeholder_text("Search applications...")
         searchentry.set_icon_from_gicon(Gtk.EntryIconPosition.PRIMARY,
-                                    Gio.Icon.new_for_string('search'))
+                                    Gio.Icon.new_for_string('system-search-symbolic'))
 
         # Connect search entry signals
         searchentry.connect("search-changed", self.on_search_changed)
@@ -464,7 +458,7 @@ class MainWindow(Gtk.Window):
         # Add global overrides button
         global_overrides_button = Gtk.Button()
         global_overrides_button.set_tooltip_text("Global Setting Overrides")
-        global_overrides_button_icon = Gio.Icon.new_for_string('system-run')
+        global_overrides_button_icon = Gio.Icon.new_for_string('applications-system-symbolic')
         global_overrides_button.set_image(Gtk.Image.new_from_gicon(global_overrides_button_icon, Gtk.IconSize.BUTTON))
         global_overrides_button.connect("clicked", self.global_on_options_clicked)
 
@@ -1288,7 +1282,7 @@ class MainWindow(Gtk.Window):
 
             # Add repository button
             add_repo_button = Gtk.Button()
-            add_icon = Gio.Icon.new_for_string('list-add')
+            add_icon = Gio.Icon.new_for_string('list-add-symbolic')
             add_repo_button.set_image(Gtk.Image.new_from_gicon(add_icon, Gtk.IconSize.BUTTON))
             add_repo_button.connect("clicked", self.on_add_repo_button_clicked)
 
@@ -1330,7 +1324,7 @@ class MainWindow(Gtk.Window):
 
                 # Create delete button
                 delete_button = Gtk.Button()
-                delete_icon = Gio.Icon.new_for_string('list-remove')
+                delete_icon = Gio.Icon.new_for_string('list-remove-symbolic')
                 delete_button.set_image(Gtk.Image.new_from_gicon(delete_icon, Gtk.IconSize.BUTTON))
                 delete_button.get_style_context().add_class("destructive-action")
                 delete_button.connect("clicked", self.on_repo_delete, repo)
@@ -1453,7 +1447,7 @@ class MainWindow(Gtk.Window):
             kind_box.set_halign(Gtk.Align.START)
             kind_box.set_valign(Gtk.Align.START)
 
-            kind_label = Gtk.Label(label=f"◆  {details['kind']}")
+            kind_label = Gtk.Label(label=f"Type: {details['kind']}")
             kind_label.get_style_context().add_class("app-type-label")
             kind_label.set_halign(Gtk.Align.START)
             kind_box.pack_end(kind_label, False, False, 0)
@@ -1466,10 +1460,12 @@ class MainWindow(Gtk.Window):
 
             # Add repository labels
             for repo in sorted(app_data['repos']):
-                repo_label = Gtk.Label(label=f"⯈ {repo}")
-                repo_label.get_style_context().add_class("app-repo-label")
+                repo_label = Gtk.Label(label=f"{repo}")
+                #repo_label.get_style_context().add_class("app-repo-label")
                 repo_label.set_halign(Gtk.Align.END)
                 repo_box.pack_end(repo_label, False, False, 0)
+            repo_list_label = Gtk.Label(label="Sources: ")
+            repo_box.pack_end(repo_list_label, False, False, 0)
 
             # Add summary
             desc_label = Gtk.Label(label=details['summary'])
@@ -1495,7 +1491,7 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                add_rm_icon = "list-remove"
+                add_rm_icon = "list-remove-symbolic"
             else:
                 button = self.create_button(
                     self.on_install_clicked,
@@ -1503,7 +1499,7 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                add_rm_icon = "list-add"
+                add_rm_icon = "list-add-symbolic"
 
             if button:
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
@@ -1518,7 +1514,7 @@ class MainWindow(Gtk.Window):
                     None,
                     condition=lambda x: True
                 )
-                add_options_icon = "system-run"
+                add_options_icon = "applications-system-symbolic"
 
                 if button:
                     use_icon = Gio.Icon.new_for_string(add_options_icon)
@@ -1545,7 +1541,7 @@ class MainWindow(Gtk.Window):
                 None
             )
             if details_btn:
-                details_icon = Gio.Icon.new_for_string('question')
+                details_icon = Gio.Icon.new_for_string('help-about-symbolic')
                 details_btn.set_image(Gtk.Image.new_from_gicon(details_icon, Gtk.IconSize.BUTTON))
                 buttons_box.pack_end(details_btn, False, False, 0)
 
@@ -1557,7 +1553,7 @@ class MainWindow(Gtk.Window):
                 condition=lambda x: x.get_details().get('urls', {}).get('donation', '')
             )
             if donate_btn:
-                donate_icon = Gio.Icon.new_for_string('donate')
+                donate_icon = Gio.Icon.new_for_string('donate-symbolic')
                 donate_btn.set_image(Gtk.Image.new_from_gicon(donate_icon, Gtk.IconSize.BUTTON))
                 buttons_box.pack_end(donate_btn, False, False, 0)
 
