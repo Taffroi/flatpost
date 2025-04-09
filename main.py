@@ -322,6 +322,58 @@ class MainWindow(Gtk.Window):
                 padding: 20px;
                 background: none;
             }
+            .permissions-header-label {
+                font-weight: bold;
+                font-size: 24px;
+            }
+            .permissions-row {
+                padding: 4px;
+                background: none;
+            }
+            .permissions-item-label {
+                font-weight: bold;
+                font-size: 14px;
+            }
+            .permissions-item-summary {
+                font-size: 12px;
+            }
+            .permissions-global-indicator {
+                background: none;
+            }
+            .permissions-spacing-box {
+                background: none;
+                padding: 5px;
+            }
+            .permissions-path-vbox {
+                padding: 6px;
+            }
+            .permissions-path {
+                padding: 6px;
+            }
+            .permissions-path-text text {
+                color: @search_fg_color;
+            }
+
+            .permissions-path-text textview {
+                border-radius: 4px;
+                padding: 8px;
+                background-color: @search_bg_color;
+                border: 1px solid @search_border_color;
+                margin: 8px;
+            }
+
+            .permissions-path-text border {
+                background-color: @search_border_color;
+                border-radius: 4px;
+            }
+
+            .permissions-path-scroll {
+                padding: 6px;
+            }
+            .permissions-bus-box {
+                padding-left: 8px;
+                background: none;
+            }
             combobox,
             combobox box,
             combobox button {
@@ -1780,97 +1832,286 @@ class MainWindow(Gtk.Window):
 
     def _add_bus_section(self, app_id, app, listbox, section_title, perm_type):
         """Helper method to add System Bus or Session Bus section"""
-        # Add separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        listbox.add(sep)
-
         # Add section header
         row_header = Gtk.ListBoxRow(selectable=False)
+        row_header.get_style_context().add_class("permissions-row")
         box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+        label_header = Gtk.Label(label=f"{section_title}",
                             use_markup=True, xalign=0)
+        label_header.get_style_context().add_class("permissions-header-label")
         box_header.pack_start(label_header, True, True, 0)
+        box_header.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), True, True, 0)
         row_header.add(box_header)
         listbox.add(row_header)
 
         # Get permissions
+        global_success, global_perms = fp_turbo.global_list_other_perm_values(perm_type, True, self.system_mode)
+        if not global_success:
+            global_perms = {"paths": []}
         success, perms = fp_turbo.list_other_perm_values(app_id, perm_type, self.system_mode)
         if not success:
             perms = {"paths": []}
 
         # Add Talks section
         talks_row = Gtk.ListBoxRow(selectable=False)
+        talks_row.get_style_context().add_class("permissions-row")
         talks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        talks_box.get_style_context().add_class("permissions-bus-box")
         talks_row.add(talks_box)
 
         talks_header = Gtk.Label(label="Talks", xalign=0)
+        talks_header.get_style_context().add_class("permissions-item-label")
         talks_box.pack_start(talks_header, False, False, 0)
 
-        # Add separator between header and paths
-        talks_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
-                            False, False, 0)
-
         # Add talk paths
-        for path in perms["paths"]:
-            if "talk" in path:
+        for path in global_perms["paths"]:
+            if path != "" and "talk" in path:
                 row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
                 hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
                 row.add(hbox)
-
                 vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-                hbox.pack_start(vbox, True, True, 0)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
 
-                label = Gtk.Label(label=path.split("=")[0], xalign=0)
-                vbox.pack_start(label, True, True, 0)
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
 
-                btn = Gtk.Button(label="Remove")
-                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
-                hbox.pack_end(btn, False, True, 0)
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
 
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+
+                # Configure button based on permission type
+                btn.set_sensitive(False)
+                btn.get_style_context().add_class("destructive-action")
+
+                btn_box.pack_end(btn, False, False, 0)
+                indicator_label = Gtk.Label(label="*", xalign=0)
+                btn_box.pack_end(indicator_label, False, True, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
+                talks_box.add(row)
+
+        for path in perms["paths"]:
+            if path != "" and "talk" in path and path not in global_perms["paths"]:
+                row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
+
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
+
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
+
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+
+                btn_box.pack_end(btn, False, False, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
                 talks_box.add(row)
 
         listbox.add(talks_row)
 
         # Add Owns section
         owns_row = Gtk.ListBoxRow(selectable=False)
+        owns_row.get_style_context().add_class("permissions-row")
         owns_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        owns_box.get_style_context().add_class("permissions-bus-box")
         owns_row.add(owns_box)
 
         owns_header = Gtk.Label(label="Owns", xalign=0)
+        owns_header.get_style_context().add_class("permissions-item-label")
         owns_box.pack_start(owns_header, False, False, 0)
 
-        # Add separator between header and paths
-        owns_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
-                        False, False, 0)
-
         # Add own paths
-        for path in perms["paths"]:
-            if "own" in path:
+        for path in global_perms["paths"]:
+            if path != "" and "own" in path:
                 row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
                 hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
                 row.add(hbox)
-
                 vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-                hbox.pack_start(vbox, True, True, 0)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
 
-                label = Gtk.Label(label=path.split("=")[0], xalign=0)
-                vbox.pack_start(label, True, True, 0)
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
 
-                btn = Gtk.Button(label="Remove")
-                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
-                hbox.pack_end(btn, False, True, 0)
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
+
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+
+                # Configure button based on permission type
+                btn.set_sensitive(False)
+                btn.get_style_context().add_class("destructive-action")
+
+                btn_box.pack_end(btn, False, False, 0)
+                indicator_label = Gtk.Label(label="*", xalign=0)
+                btn_box.pack_end(indicator_label, False, True, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
+                owns_box.add(row)
+
+        for path in perms["paths"]:
+            if path != "" and "own" in path and path not in global_perms["paths"]:
+                row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
+
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
+
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
+
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+
+                btn_box.pack_end(btn, False, False, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
 
                 owns_box.add(row)
 
         owns_row.show_all()
         listbox.add(owns_row)
 
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         # Add add button
         add_path_row = Gtk.ListBoxRow(selectable=False)
+        add_path_row.get_style_context().add_class("permissions-row")
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
         add_path_row.add(hbox)
 
-        btn = Gtk.Button(label="Add Path")
+        btn = Gtk.Button()
+        add_rm_icon = "list-add-symbolic"
+        use_icon = Gio.Icon.new_for_string(add_rm_icon)
+        btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
         btn.connect("clicked", self._on_add_path, app_id, app, perm_type)
         hbox.pack_end(btn, False, True, 0)
 
@@ -1878,16 +2119,15 @@ class MainWindow(Gtk.Window):
 
     def _add_path_section(self, app_id, app, listbox, section_title, perm_type):
         """Helper method to add sections with paths (Persistent, Environment)"""
-        # Add separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        listbox.add(sep)
-
         # Add section header
         row_header = Gtk.ListBoxRow(selectable=False)
+        row_header.get_style_context().add_class("permissions-row")
         box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+        label_header = Gtk.Label(label=f"{section_title}",
                             use_markup=True, xalign=0)
+        label_header.get_style_context().add_class("permissions-header-label")
         box_header.pack_start(label_header, True, True, 0)
+        box_header.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), True, True, 0)
         row_header.add(box_header)
         listbox.add(row_header)
 
@@ -1899,51 +2139,157 @@ class MainWindow(Gtk.Window):
         if not success:
             perms = {"paths": []}
 
-        # Add paths
+        if perm_type == "persistent":
+            global_success, global_perms = fp_turbo.global_list_other_perm_toggles(perm_type, True, self.system_mode)
+        else:
+            global_success, global_perms = fp_turbo.global_list_other_perm_values(perm_type, True, self.system_mode)
+        if not global_success:
+            global_perms = {"paths": []}
+
+
+        # First, create rows for global paths
+        for path in global_perms["paths"]:
+            if path != "":
+                row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
+
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
+
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
+
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+
+                # Configure button based on permission type
+                btn.set_sensitive(False)
+                btn.get_style_context().add_class("destructive-action")
+
+                btn_box.pack_end(btn, False, False, 0)
+                indicator_label = Gtk.Label(label="*", xalign=0)
+                btn_box.pack_end(indicator_label, False, True, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
+                listbox.add(row)
+
+        # Then create rows for application-specific paths
         for path in perms["paths"]:
-            row = Gtk.ListBoxRow(selectable=False)
-            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
-            row.add(hbox)
+            if path != "" and path not in global_perms["paths"]:
+                row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
 
-            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            hbox.pack_start(vbox, True, True, 0)
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
 
-            label = Gtk.Label(label=path, xalign=0)
-            vbox.pack_start(label, True, True, 0)
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
 
-            btn = Gtk.Button(label="Remove")
-            btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
-            hbox.pack_end(btn, False, True, 0)
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
 
-            listbox.add(row)
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+
+                btn_box.pack_end(btn, False, False, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
+                listbox.add(row)
 
         # Add add button
         row = Gtk.ListBoxRow(selectable=False)
+        row.get_style_context().add_class("permissions-row")
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
         row.add(hbox)
 
-        btn = Gtk.Button(label="Add Path")
-        btn.connect("clicked", self._on_add_path, app_id, app, perm_type)
+        btn = Gtk.Button()
+        add_rm_icon = "list-add-symbolic"
+        use_icon = Gio.Icon.new_for_string(add_rm_icon)
+        btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+        btn.connect("clicked", self._on_add_path, app_id, app)
         hbox.pack_end(btn, False, True, 0)
 
         listbox.add(row)
 
     def _add_filesystem_section(self, app_id, app, listbox, section_title):
         """Helper method to add the Filesystems section"""
-        # Add separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        listbox.add(sep)
-
         # Add section header
         row_header = Gtk.ListBoxRow(selectable=False)
+        row_header.get_style_context().add_class("permissions-row")
         box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+        label_header = Gtk.Label(label=f"{section_title}",
                             use_markup=True, xalign=0)
+        label_header.get_style_context().add_class("permissions-header-label")
         box_header.pack_start(label_header, True, True, 0)
+        box_header.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), True, True, 0)
         row_header.add(box_header)
         listbox.add(row_header)
 
         # Get filesystem permissions
+        global_success, global_perms = fp_turbo.global_list_file_perms(True, self.system_mode)
+        if not global_success:
+            global_perms = {"paths": [], "special_paths": []}
         success, perms = fp_turbo.list_file_perms(app_id, self.system_mode)
         if not success:
             perms = {"paths": [], "special_paths": []}
@@ -1958,6 +2304,7 @@ class MainWindow(Gtk.Window):
 
         for display_text, option, description in special_paths:
             row = Gtk.ListBoxRow(selectable=False)
+            row.get_style_context().add_class("permissions-row")
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
             row.add(hbox)
 
@@ -1965,44 +2312,159 @@ class MainWindow(Gtk.Window):
             hbox.pack_start(vbox, True, True, 0)
 
             label = Gtk.Label(label=display_text, xalign=0)
+            label.get_style_context().add_class("permissions-item-label")
             desc = Gtk.Label(label=description, xalign=0)
+            desc.get_style_context().add_class("permissions-item-summary")
             vbox.pack_start(label, True, True, 0)
             vbox.pack_start(desc, True, True, 0)
 
             switch = Gtk.Switch()
             switch.props.valign = Gtk.Align.CENTER
-            switch.set_active(option in perms["special_paths"])
-            switch.set_sensitive(True)
+
+            # Add indicator label before switch
+            switch_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+            in_perms = option in perms["special_paths"]
+            in_global_perms = option in global_perms["special_paths"]
+
+            switch.set_active(in_global_perms or in_perms)
+            # Set sensitivity based on your requirements
+            if in_global_perms:
+                switch.set_sensitive(False)  # Global permissions take precedence
+                indicator = Gtk.Label(label="*", xalign=1.0)
+                indicator.get_style_context().add_class("global-indicator")
+                switch_box.pack_start(indicator, False, True, 0)
+
+            elif in_perms:
+                switch.set_sensitive(True)   # Local permissions enabled and sensitive
+
+            switch_box.pack_start(switch, False, True, 0)
             switch.connect("state-set", self._on_switch_toggled, app_id, "filesystems", option)
-            hbox.pack_end(switch, False, True, 0)
+            hbox.pack_end(switch_box, False, True, 0)
 
             listbox.add(row)
 
-        # Add normal paths with remove buttons
-        for path in perms["paths"]:
+
+        # First, create rows for global paths
+        for path in global_perms["paths"]:
             if path != "":
                 row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
                 hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
                 row.add(hbox)
-
                 vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-                hbox.pack_start(vbox, True, True, 0)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
 
-                label = Gtk.Label(label=path, xalign=0)
-                vbox.pack_start(label, True, True, 0)
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
 
-                btn = Gtk.Button(label="Remove")
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
+
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
                 btn.connect("clicked", self._on_remove_path, app_id, app, path)
-                hbox.pack_end(btn, False, True, 0)
 
+                # Configure button based on permission type
+                btn.set_sensitive(False)
+                btn.get_style_context().add_class("destructive-action")
+
+                btn_box.pack_end(btn, False, False, 0)
+                indicator_label = Gtk.Label(label="*", xalign=0)
+                btn_box.pack_end(indicator_label, False, True, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
+                listbox.add(row)
+
+        # Then create rows for application-specific paths
+        for path in perms["paths"]:
+            if path != "" and path not in global_perms["paths"]:
+                row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
+
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
+
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
+
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+
+                btn_box.pack_end(btn, False, False, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
                 listbox.add(row)
 
         # Add add button
         row = Gtk.ListBoxRow(selectable=False)
+        row.get_style_context().add_class("permissions-row")
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
         row.add(hbox)
 
-        btn = Gtk.Button(label="Add Path")
+        btn = Gtk.Button()
+        add_rm_icon = "list-add-symbolic"
+        use_icon = Gio.Icon.new_for_string(add_rm_icon)
+        btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
         btn.connect("clicked", self._on_add_path, app_id, app)
         hbox.pack_end(btn, False, True, 0)
 
@@ -2038,21 +2500,17 @@ class MainWindow(Gtk.Window):
         listbox.set_selection_mode(Gtk.SelectionMode.NONE)
         listbox.get_style_context().add_class("permissions-window")
 
-        # Add Portals section first
-        self._add_section(app_id, listbox, "Portals", section_options=[
-            ("Background", "background", "Can run in the background"),
-            ("Notifications", "notifications", "Can send notifications"),
-            ("Microphone", "microphone", "Can listen to your microphone"),
-            ("Speakers", "speakers", "Can play sounds to your speakers"),
-            ("Camera", "camera", "Can record videos with your camera"),
-            ("Location", "location", "Can access your location")
-        ])
+        indicator = Gtk.Label(label="* = global override", xalign=1.0)
+        indicator.get_style_context().add_class("permissions-global-indicator")
 
         # Add other sections with correct permission types
         self._add_section(app_id, listbox, "Shared", "shared", [
             ("Network", "network", "Can communicate over network"),
             ("Inter-process communications", "ipc", "Can communicate with other applications")
         ])
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         self._add_section(app_id, listbox, "Sockets", "sockets", [
             ("X11 windowing system", "x11", "Can access X11 display server"),
@@ -2067,6 +2525,9 @@ class MainWindow(Gtk.Window):
             ("GPG-Agent directories", "gpg-agent", "Can access GPG keyring"),
             ("Inherit Wayland socket", "inherit-wayland-socket", "Can inherit existing Wayland socket")
         ])
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         self._add_section(app_id, listbox, "Devices", "devices", [
             ("GPU Acceleration", "dri", "Can use hardware graphics acceleration"),
@@ -2075,6 +2536,9 @@ class MainWindow(Gtk.Window):
             ("Shared memory", "shm", "Can use shared memory"),
             ("All devices (e.g. webcam)", "all", "Can access all device files")
         ])
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         self._add_section(app_id, listbox, "Features", "features", [
             ("Development syscalls", "devel", "Can perform development operations"),
@@ -2083,15 +2547,51 @@ class MainWindow(Gtk.Window):
             ("Controller Area Network bus", "canbus", "Can access CAN bus"),
             ("Application Shared Memory", "per-app-dev-shm", "Can use shared memory for IPC")
         ])
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         # Add Filesystems section
         self._add_filesystem_section(app_id, app, listbox, "Filesystems")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         self._add_path_section(app_id, app, listbox, "Persistent", "persistent")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         self._add_path_section(app_id, app, listbox, "Environment", "environment")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         self._add_bus_section(app_id, app, listbox, "System Bus", "system_bus")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         self._add_bus_section(app_id, app, listbox, "Session Bus", "session_bus")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
+        # Add Portals section
+        self._add_section(app_id, listbox, "Portals", section_options=[
+            ("Background", "background", "Can run in the background"),
+            ("Notifications", "notifications", "Can send notifications"),
+            ("Microphone", "microphone", "Can listen to your microphone"),
+            ("Speakers", "speakers", "Can play sounds to your speakers"),
+            ("Camera", "camera", "Can record videos with your camera"),
+            ("Location", "location", "Can access your location")
+        ])
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         # Add widgets to container
+        box_outer.pack_start(indicator, False, False, 0)
         box_outer.pack_start(scrolled, True, True, 0)
         scrolled.add(listbox)
 
@@ -2103,29 +2603,37 @@ class MainWindow(Gtk.Window):
 
     def _add_section(self, app_id, listbox, section_title, perm_type=None, section_options=None):
         """Helper method to add a section with multiple options"""
-        # Add separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        listbox.add(sep)
 
         # Add section header
         row_header = Gtk.ListBoxRow(selectable=False)
+        row_header.get_style_context().add_class("permissions-row")
         box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+        label_header = Gtk.Label(label=f"{section_title}",
                             use_markup=True, xalign=0)
+        label_header.get_style_context().add_class("permissions-header-label")
         box_header.pack_start(label_header, True, True, 0)
+        box_header.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), True, True, 0)
         row_header.add(box_header)
         listbox.add(row_header)
 
         # Handle portal permissions specially
+        perms = {}
+        global_perms = {}
         if section_title == "Portals":
             success, perms = fp_turbo.portal_get_app_permissions(app_id)
             if not success:
                 perms = {}
         elif section_title in ["Persistent", "Environment", "System Bus", "Session Bus"]:
+            global_success, global_perms = fp_turbo.global_list_other_perm_toggles(perm_type, True, self.system_mode)
+            if not global_success:
+                global_perms = {"paths": []}
             success, perms = fp_turbo.list_other_perm_toggles(app_id, perm_type, self.system_mode)
             if not success:
                 perms = {"paths": []}
         else:
+            global_success, global_perms = fp_turbo.global_list_other_perm_toggles(perm_type, True, self.system_mode)
+            if not global_success:
+                global_perms = {"paths": []}
             success, perms = fp_turbo.list_other_perm_toggles(app_id, perm_type, self.system_mode)
             if not success:
                 perms = {"paths": []}
@@ -2134,6 +2642,7 @@ class MainWindow(Gtk.Window):
             # Add options
             for display_text, option, description in section_options:
                 row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
                 hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
                 row.add(hbox)
 
@@ -2141,12 +2650,17 @@ class MainWindow(Gtk.Window):
                 hbox.pack_start(vbox, True, True, 0)
 
                 label = Gtk.Label(label=display_text, xalign=0)
+                label.get_style_context().add_class("permissions-item-label")
                 desc = Gtk.Label(label=description, xalign=0)
+                desc.get_style_context().add_class("permissions-item-summary")
                 vbox.pack_start(label, True, True, 0)
                 vbox.pack_start(desc, True, True, 0)
 
                 switch = Gtk.Switch()
                 switch.props.valign = Gtk.Align.CENTER
+
+                # Add indicator label before switch
+                switch_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
 
                 # Handle portal permissions differently
                 if section_title == "Portals":
@@ -2156,11 +2670,27 @@ class MainWindow(Gtk.Window):
                     else:
                         switch.set_sensitive(False)
                 else:
-                    switch.set_active(option in [p.lower() for p in perms["paths"]])
-                    switch.set_sensitive(True)
+                    # First check if option exists in either perms or global_perms
+                    in_perms = option.lower() in [p.lower() for p in perms["paths"]]
+                    in_global_perms = option.lower() in [p.lower() for p in global_perms["paths"]]
+
+                    # Set active state based on precedence rules
+                    switch.set_active(in_global_perms or in_perms)
+
+                    # Set sensitivity based on your requirements
+                    if in_global_perms:
+                        switch.set_sensitive(False)  # Global permissions take precedence
+                        indicator = Gtk.Label(label="*", xalign=0)
+                        indicator.get_style_context().add_class("global-indicator")
+                        switch_box.pack_start(indicator, False, True, 0)
+
+                    elif in_perms:
+                        switch.set_sensitive(True)   # Local permissions enabled and sensitive
+
+                switch_box.pack_start(switch, False, True, 0)
 
                 switch.connect("state-set", self._on_switch_toggled, app_id, perm_type, option)
-                hbox.pack_end(switch, False, True, 0)
+                hbox.pack_end(switch_box, False, True, 0)
 
                 listbox.add(row)
 
@@ -2300,16 +2830,15 @@ class MainWindow(Gtk.Window):
 
     def _global_add_bus_section(self, listbox, section_title, perm_type):
         """Helper method to add System Bus or Session Bus section"""
-        # Add separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        listbox.add(sep)
-
         # Add section header
         row_header = Gtk.ListBoxRow(selectable=False)
+        row_header.get_style_context().add_class("permissions-row")
         box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+        label_header = Gtk.Label(label=f"{section_title}",
                             use_markup=True, xalign=0)
+        label_header.get_style_context().add_class("permissions-header-label")
         box_header.pack_start(label_header, True, True, 0)
+        box_header.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), True, True, 0)
         row_header.add(box_header)
         listbox.add(row_header)
 
@@ -2320,32 +2849,64 @@ class MainWindow(Gtk.Window):
 
         # Add Talks section
         talks_row = Gtk.ListBoxRow(selectable=False)
+        talks_row.get_style_context().add_class("permissions-row")
         talks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        talks_box.get_style_context().add_class("permissions-bus-box")
         talks_row.add(talks_box)
 
         talks_header = Gtk.Label(label="Talks", xalign=0)
+        talks_header.get_style_context().add_class("permissions-item-label")
         talks_box.pack_start(talks_header, False, False, 0)
-
-        # Add separator between header and paths
-        talks_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
-                            False, False, 0)
 
         # Add talk paths
         for path in perms["paths"]:
             if "talk" in path:
                 row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
                 hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
                 row.add(hbox)
-
                 vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-                hbox.pack_start(vbox, True, True, 0)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
 
-                label = Gtk.Label(label=path.split("=")[0], xalign=0)
-                vbox.pack_start(label, True, True, 0)
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
 
-                btn = Gtk.Button(label="Remove")
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
+
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
                 btn.connect("clicked", self._global_on_remove_path, path, perm_type)
-                hbox.pack_end(btn, False, True, 0)
+                btn_box.pack_end(btn, False, False, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
 
                 talks_box.add(row)
 
@@ -2353,44 +2914,84 @@ class MainWindow(Gtk.Window):
 
         # Add Owns section
         owns_row = Gtk.ListBoxRow(selectable=False)
+        owns_row.get_style_context().add_class("permissions-row")
         owns_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        owns_box.get_style_context().add_class("permissions-bus-box")
         owns_row.add(owns_box)
 
         owns_header = Gtk.Label(label="Owns", xalign=0)
+        owns_header.get_style_context().add_class("permissions-item-label")
         owns_box.pack_start(owns_header, False, False, 0)
-
-        # Add separator between header and paths
-        owns_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
-                        False, False, 0)
 
         # Add own paths
         for path in perms["paths"]:
             if "own" in path:
                 row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
                 hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
                 row.add(hbox)
-
                 vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-                hbox.pack_start(vbox, True, True, 0)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
 
-                label = Gtk.Label(label=path.split("=")[0], xalign=0)
-                vbox.pack_start(label, True, True, 0)
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
 
-                btn = Gtk.Button(label="Remove")
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
+
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
                 btn.connect("clicked", self._on_global_remove_path, path, perm_type)
-                hbox.pack_end(btn, False, True, 0)
+                btn_box.pack_end(btn, False, False, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
 
                 owns_box.add(row)
 
         owns_row.show_all()
         listbox.add(owns_row)
 
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         # Add add button
         add_path_row = Gtk.ListBoxRow(selectable=False)
+        add_path_row.get_style_context().add_class("permissions-row")
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
         add_path_row.add(hbox)
 
-        btn = Gtk.Button(label="Add Path")
+        btn = Gtk.Button()
+        add_rm_icon = "list-add-symbolic"
+        use_icon = Gio.Icon.new_for_string(add_rm_icon)
+        btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
         btn.connect("clicked", self._global_on_add_path, perm_type)
         hbox.pack_end(btn, False, True, 0)
 
@@ -2398,16 +2999,15 @@ class MainWindow(Gtk.Window):
 
     def _global_add_path_section(self, listbox, section_title, perm_type):
         """Helper method to add sections with paths (Persistent, Environment)"""
-        # Add separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        listbox.add(sep)
-
         # Add section header
         row_header = Gtk.ListBoxRow(selectable=False)
+        row_header.get_style_context().add_class("permissions-row")
         box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+        label_header = Gtk.Label(label=f"{section_title}",
                             use_markup=True, xalign=0)
+        label_header.get_style_context().add_class("permissions-header-label")
         box_header.pack_start(label_header, True, True, 0)
+        box_header.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), True, True, 0)
         row_header.add(box_header)
         listbox.add(row_header)
 
@@ -2419,47 +3019,84 @@ class MainWindow(Gtk.Window):
         if not success:
             perms = {"paths": []}
 
-        # Add paths
+        # Add normal paths with remove buttons
         for path in perms["paths"]:
-            row = Gtk.ListBoxRow(selectable=False)
-            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
-            row.add(hbox)
+            if path != "":
+                row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+                row.add(hbox)
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
 
-            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            hbox.pack_start(vbox, True, True, 0)
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
 
-            label = Gtk.Label(label=path, xalign=0)
-            vbox.pack_start(label, True, True, 0)
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
 
-            btn = Gtk.Button(label="Remove")
-            btn.connect("clicked", self._global_on_remove_path, path, perm_type)
-            hbox.pack_end(btn, False, True, 0)
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
 
-            listbox.add(row)
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+                btn.connect("clicked", self._global_on_remove_path, path)
+                btn_box.pack_end(btn, False, False, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
+
+                listbox.add(row)
 
         # Add add button
         row = Gtk.ListBoxRow(selectable=False)
+        row.get_style_context().add_class("permissions-row")
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
         row.add(hbox)
 
-        btn = Gtk.Button(label="Add Path")
-        btn.connect("clicked", self._global_on_add_path, perm_type)
+        btn = Gtk.Button()
+        add_rm_icon = "list-add-symbolic"
+        use_icon = Gio.Icon.new_for_string(add_rm_icon)
+        btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
+        btn.connect("clicked", self._global_on_add_path)
         hbox.pack_end(btn, False, True, 0)
 
         listbox.add(row)
 
     def _global_add_filesystem_section(self, listbox, section_title):
         """Helper method to add the Filesystems section"""
-        # Add separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        listbox.add(sep)
-
         # Add section header
         row_header = Gtk.ListBoxRow(selectable=False)
+        row_header.get_style_context().add_class("permissions-row")
         box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+        label_header = Gtk.Label(label=f"{section_title}",
                             use_markup=True, xalign=0)
+        label_header.get_style_context().add_class("permissions-header-label")
         box_header.pack_start(label_header, True, True, 0)
+        box_header.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), True, True, 0)
         row_header.add(box_header)
         listbox.add(row_header)
 
@@ -2478,6 +3115,7 @@ class MainWindow(Gtk.Window):
 
         for display_text, option, description in special_paths:
             row = Gtk.ListBoxRow(selectable=False)
+            row.get_style_context().add_class("permissions-row")
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
             row.add(hbox)
 
@@ -2485,7 +3123,9 @@ class MainWindow(Gtk.Window):
             hbox.pack_start(vbox, True, True, 0)
 
             label = Gtk.Label(label=display_text, xalign=0)
+            label.get_style_context().add_class("permissions-item-label")
             desc = Gtk.Label(label=description, xalign=0)
+            desc.get_style_context().add_class("permissions-item-summary")
             vbox.pack_start(label, True, True, 0)
             vbox.pack_start(desc, True, True, 0)
 
@@ -2502,27 +3142,64 @@ class MainWindow(Gtk.Window):
         for path in perms["paths"]:
             if path != "":
                 row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
                 hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
                 row.add(hbox)
-
                 vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-                hbox.pack_start(vbox, True, True, 0)
+                #vbox.get_style_context().add_class("permissions-path-vbox")
+                vbox.set_size_request(400, 30)
+                hbox.pack_start(vbox, False, True, 0)
 
-                label = Gtk.Label(label=path, xalign=0)
-                vbox.pack_start(label, True, True, 0)
+                text_view = Gtk.TextView()
+                text_view.set_size_request(400, 20)
+                text_view.get_style_context().add_class("permissions-path-text")
+                text_view.set_editable(False)
+                text_view.set_cursor_visible(False)
+                #text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                # Enable horizontal scrolling
+                scrolled_window = Gtk.ScrolledWindow()
+                #scrolled_window.get_style_context().add_class("permissions-path-scroll")
+                scrolled_window.set_hexpand(False)
+                scrolled_window.set_vexpand(False)
+                scrolled_window.set_size_request(400, 30)
+                scrolled_window.set_policy(
+                    Gtk.PolicyType.AUTOMATIC,  # Enable horizontal scrollbar
+                    Gtk.PolicyType.NEVER       # Disable vertical scrollbar
+                )
 
-                btn = Gtk.Button(label="Remove")
+                # Add TextView to ScrolledWindow
+                scrolled_window.add(text_view)
+
+                # Add the text
+                buffer = text_view.get_buffer()
+                buffer.set_text(path)
+
+                vbox.pack_start(scrolled_window, False, True, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                # Create remove button
+                btn = Gtk.Button()
+                add_rm_icon = "list-remove-symbolic"
+                use_icon = Gio.Icon.new_for_string(add_rm_icon)
+                btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
                 btn.connect("clicked", self._global_on_remove_path, path)
-                hbox.pack_end(btn, False, True, 0)
+                btn_box.pack_end(btn, False, False, 0)
+
+                hbox.pack_end(btn_box, False, False, 0)
 
                 listbox.add(row)
 
         # Add add button
         row = Gtk.ListBoxRow(selectable=False)
+        row.get_style_context().add_class("permissions-row")
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
         row.add(hbox)
 
-        btn = Gtk.Button(label="Add Path")
+        btn = Gtk.Button()
+        add_rm_icon = "list-add-symbolic"
+        use_icon = Gio.Icon.new_for_string(add_rm_icon)
+        btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
         btn.connect("clicked", self._global_on_add_path)
         hbox.pack_end(btn, False, True, 0)
 
@@ -2556,6 +3233,9 @@ class MainWindow(Gtk.Window):
         listbox.set_selection_mode(Gtk.SelectionMode.NONE)
         listbox.get_style_context().add_class("permissions-window")
 
+        indicator = Gtk.Label(label="* = global override", xalign=1.0)
+        indicator.get_style_context().add_class("permissions-global-indicator")
+
         # No portals section. Portals are only handled on per-user basis.
 
         # Add other sections with correct permission types
@@ -2563,6 +3243,9 @@ class MainWindow(Gtk.Window):
             ("Network", "network", "Can communicate over network"),
             ("Inter-process communications", "ipc", "Can communicate with other applications")
         ])
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         self._global_add_section(listbox, "Sockets", "sockets", [
             ("X11 windowing system", "x11", "Can access X11 display server"),
@@ -2577,6 +3260,9 @@ class MainWindow(Gtk.Window):
             ("GPG-Agent directories", "gpg-agent", "Can access GPG keyring"),
             ("Inherit Wayland socket", "inherit-wayland-socket", "Can inherit existing Wayland socket")
         ])
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         self._global_add_section(listbox, "Devices", "devices", [
             ("GPU Acceleration", "dri", "Can use hardware graphics acceleration"),
@@ -2585,6 +3271,9 @@ class MainWindow(Gtk.Window):
             ("Shared memory", "shm", "Can use shared memory"),
             ("All devices (e.g. webcam)", "all", "Can access all device files")
         ])
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         self._global_add_section(listbox, "Features", "features", [
             ("Development syscalls", "devel", "Can perform development operations"),
@@ -2593,13 +3282,35 @@ class MainWindow(Gtk.Window):
             ("Controller Area Network bus", "canbus", "Can access CAN bus"),
             ("Application Shared Memory", "per-app-dev-shm", "Can use shared memory for IPC")
         ])
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         # Add Filesystems section
         self._global_add_filesystem_section(listbox, "Filesystems")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         self._global_add_path_section(listbox, "Persistent", "persistent")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         self._global_add_path_section(listbox, "Environment", "environment")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         self._global_add_bus_section(listbox, "System Bus", "system_bus")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
+
         self._global_add_bus_section(listbox, "Session Bus", "session_bus")
+        spacing_box = Gtk.ListBoxRow(selectable=False)
+        spacing_box.get_style_context().add_class("permissions-spacing-box")
+        listbox.add(spacing_box)
 
         # Add widgets to container
         box_outer.pack_start(scrolled, True, True, 0)
@@ -2613,16 +3324,15 @@ class MainWindow(Gtk.Window):
 
     def _global_add_section(self, listbox, section_title, perm_type=None, section_options=None):
         """Helper method to add a section with multiple options"""
-        # Add separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        listbox.add(sep)
-
         # Add section header
         row_header = Gtk.ListBoxRow(selectable=False)
+        row_header.get_style_context().add_class("permissions-row")
         box_header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        label_header = Gtk.Label(label=f"<b>{section_title}</b>",
+        label_header = Gtk.Label(label=f"{section_title}",
                             use_markup=True, xalign=0)
+        label_header.get_style_context().add_class("permissions-header-label")
         box_header.pack_start(label_header, True, True, 0)
+        box_header.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), True, True, 0)
         row_header.add(box_header)
         listbox.add(row_header)
 
@@ -2639,6 +3349,7 @@ class MainWindow(Gtk.Window):
             # Add options
             for display_text, option, description in section_options:
                 row = Gtk.ListBoxRow(selectable=False)
+                row.get_style_context().add_class("permissions-row")
                 hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
                 row.add(hbox)
 
@@ -2646,7 +3357,9 @@ class MainWindow(Gtk.Window):
                 hbox.pack_start(vbox, True, True, 0)
 
                 label = Gtk.Label(label=display_text, xalign=0)
+                label.get_style_context().add_class("permissions-item-label")
                 desc = Gtk.Label(label=description, xalign=0)
+                desc.get_style_context().add_class("permissions-item-summary")
                 vbox.pack_start(label, True, True, 0)
                 vbox.pack_start(desc, True, True, 0)
 

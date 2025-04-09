@@ -795,6 +795,8 @@ class AppstreamSearcher:
                 else:
                     self._process_system_category(searcher, category, system)
                 current_category += 1
+        self.save_collections_data()
+
         if self._should_refresh():
             self.update_subcategories_data()
 
@@ -802,6 +804,10 @@ class AppstreamSearcher:
 
     def _process_category(self, searcher, category, current_category, total_categories):
         """Process a single category and retrieve its metadata."""
+
+        if self._should_refresh():
+            self._refresh_category_data(searcher, category)
+
         json_path = "collections_data.json"
         try:
             with open(json_path, 'r', encoding='utf-8') as f:
@@ -809,9 +815,6 @@ class AppstreamSearcher:
                 self._update_from_collections(collections_data, category)
         except (IOError, json.JSONDecodeError) as e:
             logger.error(f"Error loading collections data: {str(e)}")
-
-        if self._should_refresh():
-            self._refresh_category_data(searcher, category)
 
         self.refresh_progress = (current_category / total_categories) * 100
 

@@ -41,6 +41,8 @@ DONE:
 - Add per-app permission management GUI
 - Add global permission management GUI
 - Add Package information page/section.
+- Cleanup permissions GUI
+- Add permissions override viewing inside per-app permissions view.
 
 TODO:
 - Update management GUI (individual apps can already be updated)
