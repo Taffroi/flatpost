@@ -1471,7 +1471,6 @@ class MainWindow(Gtk.Window):
 
         # Define file paths
         json_path = app_data_dir / "collections_data.json"
-        subcategories_path = app_data_dir / "subcategories_data.json"
 
         # Load collections data
         try:
