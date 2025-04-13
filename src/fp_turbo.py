@@ -1266,33 +1266,31 @@ def add_file_permissions(app_id: str, path: str, perm_type=None, system=False) -
             # Ensure path do not ends with a trailing slash
             filesystem_path = path.rstrip('/')
 
+            # Validate absolute paths start with /
+            if filesystem_path.startswith('/'):
+                filesystem_path = '/' + filesystem_path.lstrip('/')
+
         if not key_file.has_group("Context"):
             key_file.set_string("Context", perm_type, "")
 
-        # Now get the keys
         context_keys = key_file.get_keys("Context")
-
-        # Check if perm_type exists in the section
         if perm_type not in str(context_keys):
-            # Create the key with an empty string
             key_file.set_string("Context", perm_type, "")
 
-        # Get existing filesystem paths
         existing_paths = key_file.get_string("Context", perm_type)
         if existing_paths is None or existing_paths == "":
-            # If no filesystems entry exists, create it
+            # If no filesystems exist, set the exact path provided
             key_file.set_string("Context", perm_type, filesystem_path)
         else:
-            # Split existing paths and check if our path already exists
             existing_paths_list = existing_paths.split(';')
-            # Normalize paths for comparison (remove trailing slashes, convert to absolute paths)
             normalized_new_path = os.path.abspath(filesystem_path.rstrip('/'))
             normalized_existing_paths = [os.path.abspath(p.rstrip('/')) for p in existing_paths_list]
 
-            # Only add if the path doesn't already exist
             if normalized_new_path not in normalized_existing_paths:
+                # Add new path with proper separator
+                separator = ';' if existing_paths.endswith(';') else ';'
                 key_file.set_string("Context", perm_type,
-                                  existing_paths + filesystem_path + ";")
+                                    existing_paths + separator + filesystem_path)
 
         # Write the modified metadata back
         try:
@@ -1709,34 +1707,31 @@ def global_add_file_permissions(path: str, perm_type=None, override=True, system
             # Ensure path do not ends with a trailing slash
             filesystem_path = path.rstrip('/')
 
+            # Validate absolute paths start with /
+            if filesystem_path.startswith('/'):
+                filesystem_path = '/' + filesystem_path.lstrip('/')
+
         if not key_file.has_group("Context"):
             key_file.set_string("Context", perm_type, "")
 
-        # Now get the keys
         context_keys = key_file.get_keys("Context")
-
-        # Check if perm_type exists in the section
         if perm_type not in str(context_keys):
-            # Create the key with an empty string
             key_file.set_string("Context", perm_type, "")
 
-        # Get existing filesystem paths
         existing_paths = key_file.get_string("Context", perm_type)
         if existing_paths is None or existing_paths == "":
-            # If no filesystems entry exists, create it
+            # If no filesystems exist, set the exact path provided
             key_file.set_string("Context", perm_type, filesystem_path)
         else:
-            # Split existing paths and check if our path already exists
             existing_paths_list = existing_paths.split(';')
-
-            # Normalize paths for comparison (remove trailing slashes, convert to absolute paths)
             normalized_new_path = os.path.abspath(filesystem_path.rstrip('/'))
             normalized_existing_paths = [os.path.abspath(p.rstrip('/')) for p in existing_paths_list]
 
-            # Only add if the path doesn't already exist
             if normalized_new_path not in normalized_existing_paths:
+                # Add new path with proper separator
+                separator = ';' if existing_paths.endswith(';') else ';'
                 key_file.set_string("Context", perm_type,
-                                  existing_paths + filesystem_path + ";")
+                                    existing_paths + separator + filesystem_path)
 
         # Write the modified metadata back
         try:

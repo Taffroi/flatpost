@@ -2154,7 +2154,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
 
                 # Configure button based on permission type
                 btn.set_sensitive(False)
@@ -2213,7 +2213,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
 
                 btn_box.pack_end(btn, False, False, 0)
 
@@ -2280,7 +2280,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
 
                 # Configure button based on permission type
                 btn.set_sensitive(False)
@@ -2339,7 +2339,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
 
                 btn_box.pack_end(btn, False, False, 0)
 
@@ -2448,7 +2448,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
 
                 # Configure button based on permission type
                 btn.set_sensitive(False)
@@ -2508,7 +2508,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, perm_type)
 
                 btn_box.pack_end(btn, False, False, 0)
 
@@ -2652,7 +2652,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, "filesystems")
 
                 # Configure button based on permission type
                 btn.set_sensitive(False)
@@ -2712,7 +2712,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._on_remove_path, app_id, app, path)
+                btn.connect("clicked", self._on_remove_path, app_id, app, path, "filesystems")
 
                 btn_box.pack_end(btn, False, False, 0)
 
@@ -2731,7 +2731,7 @@ class MainWindow(Gtk.Window):
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-        btn.connect("clicked", self._on_add_path, app_id, app)
+        btn.connect("clicked", self._on_add_path, app_id, app, "filesystems")
         hbox.pack_end(btn, False, True, 0)
 
         listbox.add(row)
@@ -2991,6 +2991,13 @@ class MainWindow(Gtk.Window):
                     "persistent",
                     self.system_mode
                 )
+            elif perm_type == "filesystems":
+                success, message = fp_turbo.remove_file_permissions(
+                    app_id,
+                    path,
+                    "filesystems",
+                    self.system_mode
+                )
             else:
                 success, message = fp_turbo.remove_permission_value(
                     app_id,
@@ -3037,6 +3044,13 @@ class MainWindow(Gtk.Window):
                         app_id,
                         path,
                         "persistent",
+                        self.system_mode
+                    )
+                elif perm_type == "filesystems":
+                    success, message = fp_turbo.add_file_permissions(
+                        app_id,
+                        path,
+                        "filesystems",
                         self.system_mode
                     )
                 else:
@@ -3338,7 +3352,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._global_on_remove_path, path)
+                btn.connect("clicked", self._global_on_remove_path, path, perm_type)
                 btn_box.pack_end(btn, False, False, 0)
 
                 hbox.pack_end(btn_box, False, False, 0)
@@ -3461,7 +3475,7 @@ class MainWindow(Gtk.Window):
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                btn.connect("clicked", self._global_on_remove_path, path)
+                btn.connect("clicked", self._global_on_remove_path, path, "filesystems")
                 btn_box.pack_end(btn, False, False, 0)
 
                 hbox.pack_end(btn_box, False, False, 0)
@@ -3480,7 +3494,7 @@ class MainWindow(Gtk.Window):
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-        btn.connect("clicked", self._global_on_add_path)
+        btn.connect("clicked", self._global_on_add_path, "filesystems")
         hbox.pack_end(btn, False, True, 0)
 
         listbox.add(row)
@@ -3686,6 +3700,13 @@ class MainWindow(Gtk.Window):
                     True,
                     self.system_mode
                 )
+            elif perm_type == "filesystems":
+                success, message = fp_turbo.remove_file_permissions(
+                    path,
+                    "filesystems",
+                    True,
+                    self.system_mode
+                )
             else:
                 success, message = fp_turbo.global_remove_permission_value(
                     perm_type,
@@ -3731,6 +3752,13 @@ class MainWindow(Gtk.Window):
                     success, message = fp_turbo.global_add_file_permissions(
                         path,
                         "persistent",
+                        True,
+                        self.system_mode
+                    )
+                elif perm_type == "filesystems":
+                    success, message = fp_turbo.global_add_file_permissions(
+                        path,
+                        "filesystems",
                         True,
                         self.system_mode
                     )
