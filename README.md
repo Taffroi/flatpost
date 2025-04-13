@@ -48,6 +48,7 @@ DONE:
 TODO:
 - add about section
 - General GUI layout/theming improvements
+- Document fp_turbo functions
 
 Usage (Temporary until proper packaging is added):
 
