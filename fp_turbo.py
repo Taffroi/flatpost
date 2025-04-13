@@ -720,10 +720,11 @@ class AppstreamSearcher:
                             self.installed_results.extend(search_result)
                 elif "updates" in category:
                     updates = searcher.check_updates(system)
-                    for repo_name, app_id, repo_type in updates:
+                    for app_id, repo_name, repo_type in updates:
                         if repo_name:
                             search_result = searcher.search_flatpak(app_id, repo_name)
                             self.updates_results.extend(search_result)
+
                 # Update progress bar
                 self.refresh_progress = (current_category / total_categories) * 100
         # make sure to reset these to empty before refreshing.
@@ -897,9 +898,11 @@ def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tupl
     installation = get_installation(system)
 
     transaction = Flatpak.Transaction.new_for_installation(installation)
-
-    # Add the install operation
-    transaction.add_install(repo_name, app.flatpak_bundle, None)
+    available_apps = installation.list_remote_refs_sync(repo_name)
+    for available_app in available_apps:
+        if app.id in available_app.get_name():
+            # Add the install operation
+            transaction.add_install(repo_name, available_app.format_ref(), None)
     # Run the transaction
     try:
         transaction.run()
@@ -942,7 +945,7 @@ def install_flatpakref(ref_file, system=False):
     return True, f"Successfully installed {ref_file}"
 
 
-def remove_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple[bool, str]:
+def remove_flatpak(app: AppStreamPackage, system=False) -> tuple[bool, str]:
     """
     Remove a Flatpak package using transactions.
 
@@ -953,15 +956,15 @@ def remove_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple
     Returns:
         Tuple[bool, str]: (success, message)
     """
-    if not repo_name:
-        repo_name = "flathub"
 
     # Get the appropriate installation based on user parameter
     installation = get_installation(system)
-
+    installed = installation.list_installed_refs(None)
     # Create a new transaction for removal
     transaction = Flatpak.Transaction.new_for_installation(installation)
-    transaction.add_uninstall(app.flatpak_bundle)
+    for installed_ref in installed:
+        if app.id in installed_ref.get_name():
+            transaction.add_uninstall(installed_ref.format_ref())
     # Run the transaction
     try:
         transaction.run()
@@ -969,7 +972,7 @@ def remove_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple
         return False, f"Failed to remove {app.id}: {e}"
     return True, f"Successfully removed {app.id}"
 
-def update_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple[bool, str]:
+def update_flatpak(app: AppStreamPackage, system=False) -> tuple[bool, str]:
     """
     Remove a Flatpak package using transactions.
 
@@ -980,21 +983,47 @@ def update_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tuple
     Returns:
         Tuple[bool, str]: (success, message)
     """
-    if not repo_name:
-        repo_name = "flathub"
 
     # Get the appropriate installation based on user parameter
     installation = get_installation(system)
-
+    updates = installation.list_installed_refs_for_update(None)
     # Create a new transaction for removal
     transaction = Flatpak.Transaction.new_for_installation(installation)
-    transaction.add_update(app.flatpak_bundle)
+
+    for update in updates:
+        if app.id == update.get_name():
+            transaction.add_update(update.format_ref())
     # Run the transaction
     try:
         transaction.run()
     except GLib.Error as e:
         return False, f"Failed to update {app.id}: {e}"
     return True, f"Successfully updated {app.id}"
+
+def update_all_flatpaks(apps: list[AppStreamPackage], system=False) -> tuple[bool, str]:
+    """
+    Update multiple Flatpak packages using transactions.
+
+    Args:
+        apps (Union[List[AppStreamPackage], AppStreamPackage]): One or more packages to update
+        system (Optional[bool]): Whether to operate on user or system installation
+
+    Returns:
+        Tuple[bool, List[str]]: (success, list of status messages)
+    """
+
+    installation = get_installation(system)
+    updates = installation.list_installed_refs_for_update(None)
+    # Create a new transaction for removal
+    transaction = Flatpak.Transaction.new_for_installation(installation)
+    for update in updates:
+        transaction.add_update(update.format_ref())
+
+    try:
+        transaction.run()
+        return True, "Successfully updated all packages"
+    except GLib.Error as e:
+        return False, f"Failed to update all packages: {str(e)}"
 
 def get_installation(system=False):
     if system is False:
@@ -2253,6 +2282,8 @@ def main():
                        help='Remove a Flatpak package')
     parser.add_argument('--update', type=str, metavar='APP_ID',
                        help='Update a Flatpak package')
+    parser.add_argument('--update-all', action='store_true',
+                       help='Update all Flatpak packages')
     parser.add_argument('--system', action='store_true', help='Install as system instead of user')
     parser.add_argument('--refresh', action='store_true', help='Install as system instead of user')
     parser.add_argument('--refresh-local', action='store_true', help='Install as system instead of user')
@@ -2338,6 +2369,10 @@ def main():
 
     if args.update:
         handle_update(args, searcher)
+        return
+
+    if args.update_all:
+        handle_update_all(args, searcher)
         return
 
     # Handle information operations
@@ -2504,7 +2539,7 @@ def handle_remove(args, searcher):
     result_message = ""
     for package in packagelist:
         try:
-            success, message = remove_flatpak(package, args.repo, args.system)
+            success, message = remove_flatpak(package, args.system)
             result_message = f"{message}"
             break
         except GLib.Error as e:
@@ -2513,15 +2548,28 @@ def handle_remove(args, searcher):
     print(result_message)
 
 def handle_update(args, searcher):
-    packagelist = searcher.search_flatpak(args.update, args.repo)
+    packagelist = searcher.search_flatpak(args.update)
     result_message = ""
     for package in packagelist:
         try:
-            success, message = update_flatpak(package, args.repo, args.system)
+            success, message = update_flatpak(package, args.system)
             result_message = f"{message}"
             break
         except GLib.Error as e:
             result_message = f"Update of {args.update} failed: {str(e)}"
+            pass
+    print(result_message)
+
+def handle_update_all(args, searcher):
+    packagelist = searcher.search_flatpak(args.update)
+    result_message = ""
+    for package in packagelist:
+        try:
+            success, message = update_all_flatpaks(package, args.system)
+            result_message = f"{message}"
+            break
+        except GLib.Error as e:
+            result_message = f"Unable to apply updates: {str(e)}"
             pass
     print(result_message)
 

@@ -295,6 +295,10 @@ class MainWindow(Gtk.Window):
             .app-type-label {
                 font-size: 0.8em;
             }
+            .updates_available_bar {
+                background-color: #18A3FF;
+                padding: 4px;
+            }
             .screenshot-bullet {
                 color: #18A3FF;
                 font-size: 30px;
@@ -917,6 +921,7 @@ class MainWindow(Gtk.Window):
         self.current_group = group
         self.update_category_header(category)
         self.update_subcategories_bar(category)
+        self.update_updates_available_bar(category)
         self.show_category_apps(category)
 
 
@@ -969,6 +974,15 @@ class MainWindow(Gtk.Window):
         self.subcategories_bar.set_visible(False)
         self.subcategories_bar.set_halign(Gtk.Align.FILL)  # Ensure full width
         self.right_panel.pack_start(self.subcategories_bar, False, False, 0)
+
+        # Create subcategories bar (initially hidden)
+        self.updates_available_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.updates_available_bar.set_hexpand(True)
+        self.updates_available_bar.set_spacing(6)
+        self.updates_available_bar.set_border_width(6)
+        self.updates_available_bar.set_visible(False)
+        self.updates_available_bar.set_halign(Gtk.Align.FILL)  # Ensure full width
+        self.right_panel.pack_start(self.updates_available_bar, False, False, 0)
         self.right_panel.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
         # Create scrollable area
@@ -1149,6 +1163,68 @@ class MainWindow(Gtk.Window):
         self.subcategories_bar.pack_start(pan_end, False, False, 0)
         self.subcategories_bar.queue_resize()
         self.subcategories_bar.show_all()
+
+    def update_updates_available_bar(self, category):
+        for child in self.updates_available_bar.get_children():
+            child.destroy()
+
+        if category == "updates":
+            if self.updates_results != [] :
+                self.updates_available_bar.get_style_context().add_class("updates_available_bar")
+                self.updates_available_bar.set_visible(True)
+
+                buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+                buttons_box.set_spacing(6)
+                buttons_box.set_margin_top(4)
+                buttons_box.set_halign(Gtk.Align.END)
+
+                update_all_button = Gtk.Button()
+                update_all_icon = Gio.Icon.new_for_string('system-software-update-symbolic')
+                update_all_button.set_image(Gtk.Image.new_from_gicon(update_all_icon, Gtk.IconSize.BUTTON))
+                update_all_button.connect("clicked", self.on_update_all_button_clicked)
+                buttons_box.pack_end(update_all_button, False, False, 0)
+
+                # Create left label
+                left_label = Gtk.Label(label="Update All: ")
+                left_label.set_halign(Gtk.Align.END)  # Align left
+                self.updates_available_bar.pack_end(buttons_box, False, False, 0)
+                self.updates_available_bar.pack_end(left_label, False, False, 0)
+
+                self.updates_available_bar.show_all()
+        else:
+            self.updates_available_bar.set_visible(False)
+
+    def on_update_all_button_clicked(self, button=None):
+        # Create a message dialog
+        dialog = Gtk.MessageDialog(
+            transient_for=self,  # Parent window
+            modal=True,                # Make it modal
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.OK_CANCEL,
+            text="Download and install all available Flatpak updates?",
+            title="Confirm"
+        )
+
+        # Show the dialog and get the response
+        response = dialog.run()
+
+        # Handle the response
+        if response == Gtk.ResponseType.OK:
+            # Perform Removal
+            def perform_update():
+                # Show waiting dialog
+                GLib.idle_add(self.show_waiting_dialog, "Updating packages...")
+
+                success, message = fp_turbo.update_all_flatpaks(self.updates_results, self.system_mode)
+
+                # Update UI on main thread
+                GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
+
+            # Start spinner and begin installation
+            thread = threading.Thread(target=perform_update)
+            thread.daemon = True  # Allow program to exit even if thread is still running
+            thread.start()
+        dialog.destroy()
 
     def get_parent_category(self, subcategory):
         for parent, subcats in self.subcategory_groups.items():
@@ -1507,14 +1583,14 @@ class MainWindow(Gtk.Window):
             # Add repository labels
             repo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
             repo_box.set_spacing(4)
-            repo_box.set_halign(Gtk.Align.END)
-            repo_box.set_valign(Gtk.Align.END)
+            repo_box.set_halign(Gtk.Align.START)
+            repo_box.set_valign(Gtk.Align.START)
 
             # Add repository labels
             for repo in sorted(app_data['repos']):
                 repo_label = Gtk.Label(label=f"{repo}")
                 #repo_label.get_style_context().add_class("app-repo-label")
-                repo_label.set_halign(Gtk.Align.END)
+                repo_label.set_halign(Gtk.Align.START)
                 repo_box.pack_end(repo_label, False, False, 0)
             repo_list_label = Gtk.Label(label="Sources: ")
             repo_box.pack_end(repo_list_label, False, False, 0)
@@ -1818,7 +1894,7 @@ class MainWindow(Gtk.Window):
                 # Show waiting dialog
                 GLib.idle_add(self.show_waiting_dialog, "Removing package...")
 
-                success, message = fp_turbo.remove_flatpak(app, None, self.system_mode)
+                success, message = fp_turbo.remove_flatpak(app, self.system_mode)
 
                 # Update UI on main thread
                 GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
@@ -3543,7 +3619,7 @@ class MainWindow(Gtk.Window):
                 # Show waiting dialog
                 GLib.idle_add(self.show_waiting_dialog, "Updating package...")
 
-                success, message = fp_turbo.update_flatpak(app, None, self.system_mode)
+                success, message = fp_turbo.update_flatpak(app, self.system_mode)
 
                 # Update UI on main thread
                 GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))

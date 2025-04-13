@@ -43,9 +43,9 @@ DONE:
 - Add Package information page/section.
 - Cleanup permissions GUI
 - Add permissions override viewing inside per-app permissions view.
+- Add 'update all' functionality.
 
 TODO:
-- Update management GUI (individual apps can already be updated)
 - add about section
 - General GUI layout/theming improvements
 
@@ -83,6 +83,7 @@ options:
   --install APP_ID      Install a Flatpak package
   --remove APP_ID       Remove a Flatpak package
   --update APP_ID       Update a Flatpak package
+  --update-all          Apply all available updates
   --system              Install as system instead of user
   --refresh             Install as system instead of user
   --refresh-local       Install as system instead of user
@@ -165,6 +166,8 @@ Common CLI combinations:
 ./fp_turbo.py --remove <app id> --system
 ./fp_turbo.py --update <app id>
 ./fp_turbo.py --update <app id> --system
+./fp_turbo.py --update-all
+./fp_turbo.py --update-all --system
 ./fp_turbo.py --id <app id> --list-file-perms
 ./fp_turbo.py --id <app id> --add-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
 ./fp_turbo.py --id <app id> --remove-file-perms <host, host-os, host-etc, home, or "/path/to/directory" for custom paths>
@@ -203,7 +206,6 @@ Common CLI combinations:
 ./fp_turbo.py --override --global-list-other-perm-values <environment, session_bus, system_bus> --system
 ./fp_turbo.py --override --global-add-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
 ./fp_turbo.py --override --global-remove-other-perm-values <environment, session_bus, system_bus> --perm-value <ENVVAR=value or xxx.yyy.zzz=talk or xxx.yyy.zzz=own> --system
-
 ./fp_turbo.py --get-all-portal-permissions
 ./fp_turbo.py --get-portal-permissions <portal>
 ./fp_turbo.py --get-app-portal-permissions --id <app id>
