@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Flatpost
+Exec=python3 /usr/bin/flatpost
+Icon=com.flatpost.flatpostapp
+Type=Application
+Categories=Utility;
