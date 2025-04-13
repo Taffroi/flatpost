@@ -44,10 +44,10 @@ DONE:
 - Cleanup permissions GUI
 - Add permissions override viewing inside per-app permissions view.
 - Add 'update all' functionality.
-
-TODO:
 - add about section
 - General GUI layout/theming improvements
+
+TODO:
 - Document fp_turbo functions
 
 Usage (Temporary until proper packaging is added):

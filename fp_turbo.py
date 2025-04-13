@@ -899,11 +899,16 @@ def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tupl
 
     transaction = Flatpak.Transaction.new_for_installation(installation)
     available_apps = installation.list_remote_refs_sync(repo_name)
+    match_found = None
     for available_app in available_apps:
-        if app.id in available_app.get_name():
+        if app.id == available_app.get_name():
+            match_found = 1
             # Add the install operation
             transaction.add_install(repo_name, available_app.format_ref(), None)
-    # Run the transaction
+
+    if not match_found:
+        return False, f"No available package named {app.id} found in any repositories."
+
     try:
         transaction.run()
     except GLib.Error as e:
@@ -962,10 +967,14 @@ def remove_flatpak(app: AppStreamPackage, system=False) -> tuple[bool, str]:
     installed = installation.list_installed_refs(None)
     # Create a new transaction for removal
     transaction = Flatpak.Transaction.new_for_installation(installation)
+    match_found = None
     for installed_ref in installed:
         if app.id in installed_ref.get_name():
+            match_found = 1
             transaction.add_uninstall(installed_ref.format_ref())
-    # Run the transaction
+
+    if not match_found:
+        return False, f"No installed package named {app.id} found."
     try:
         transaction.run()
     except GLib.Error as e:
@@ -989,10 +998,14 @@ def update_flatpak(app: AppStreamPackage, system=False) -> tuple[bool, str]:
     updates = installation.list_installed_refs_for_update(None)
     # Create a new transaction for removal
     transaction = Flatpak.Transaction.new_for_installation(installation)
-
+    match_found = None
     for update in updates:
         if app.id == update.get_name():
+            match_found = 1
             transaction.add_update(update.format_ref())
+
+    if not match_found:
+        return False, f"No updateable package named {app.id} found."
     # Run the transaction
     try:
         transaction.run()

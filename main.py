@@ -16,6 +16,7 @@ from pathlib import Path
 from html.parser import HTMLParser
 import requests
 import os
+from datetime import datetime
 
 class MainWindow(Gtk.Window):
     def __init__(self):
@@ -183,7 +184,7 @@ class MainWindow(Gtk.Window):
             }
             .top-bar {
                 margin: 0px;
-                padding: 10px;
+                padding: 0px;
                 border: 0px;
             }
 
@@ -393,6 +394,22 @@ class MainWindow(Gtk.Window):
                 margin: 0px;
                 min-height: 0px;
             }
+            .app-action-button {
+                border-radius: 4px;
+                padding: 8px;
+                transition: all 0.2s ease;
+            }
+            .app-action-button:hover {
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .app-url-label {
+                color: #18A3FF;
+                text-decoration: underline;
+            }
+
+            .app-url-label:hover {
+                text-decoration: none;
+            }
         """)
 
         # Add CSS provider to the default screen
@@ -447,9 +464,13 @@ class MainWindow(Gtk.Window):
         self.top_bar.set_hexpand(True)
         self.top_bar.set_vexpand(False)
         self.top_bar.set_spacing(6)
+        self.top_bar.set_margin_top(0)
+        self.top_bar.set_margin_bottom(0)
+        self.top_bar.set_margin_start(0)
+        self.top_bar.set_margin_end(0)
 
         # Add search bar
-        self.searchbar = Gtk.SearchBar()  # Use self.searchbar instead of searchbar
+        self.searchbar = Gtk.SearchBar()
         self.searchbar.set_show_close_button(False)
         self.searchbar.set_hexpand(False)
         self.searchbar.set_vexpand(False)
@@ -490,10 +511,11 @@ class MainWindow(Gtk.Window):
         self.component_type_combo_label = Gtk.Label(label="Search Type:")
         # Create component type dropdown
         self.component_type_combo = Gtk.ComboBoxText()
+        self.component_type_combo.props.valign = Gtk.Align.CENTER
         self.component_type_combo.set_hexpand(False)
         self.component_type_combo.set_vexpand(False)
         self.component_type_combo.set_wrap_width(1)
-        self.component_type_combo.set_size_request(150, -1)  # Set width in pixels
+        self.component_type_combo.set_size_request(150, 32)  # Set width in pixels
         self.component_type_combo.connect("changed", self.on_component_type_changed)
 
         # Add "ALL" option first
@@ -512,7 +534,19 @@ class MainWindow(Gtk.Window):
         self.top_bar.pack_start(self.component_type_combo, False, False, 0)
 
         # Add global overrides button
+        about_button = Gtk.Button()
+        about_button.set_size_request(26, 26)  # 40x40 pixels
+        about_button.get_style_context().add_class("app-action-button")
+        about_button.set_tooltip_text("Global Setting Overrides")
+        about_button_icon = Gio.Icon.new_for_string('help-about-symbolic')
+        about_button.set_image(Gtk.Image.new_from_gicon(about_button_icon, Gtk.IconSize.BUTTON))
+        about_button.connect("clicked", self.on_about_clicked)
+
+
+        # Add global overrides button
         global_overrides_button = Gtk.Button()
+        global_overrides_button.set_size_request(26, 26)  # 40x40 pixels
+        global_overrides_button.get_style_context().add_class("app-action-button")
         global_overrides_button.set_tooltip_text("Global Setting Overrides")
         global_overrides_button_icon = Gio.Icon.new_for_string('applications-system-symbolic')
         global_overrides_button.set_image(Gtk.Image.new_from_gicon(global_overrides_button_icon, Gtk.IconSize.BUTTON))
@@ -520,16 +554,27 @@ class MainWindow(Gtk.Window):
 
         # Add refresh metadata button
         refresh_metadata_button = Gtk.Button()
+        refresh_metadata_button.set_size_request(26, 26)  # 40x40 pixels
+        refresh_metadata_button.get_style_context().add_class("app-action-button")
         refresh_metadata_button.set_tooltip_text("Refresh metadata")
         refresh_metadata_button_icon = Gio.Icon.new_for_string('system-reboot-symbolic')
         refresh_metadata_button.set_image(Gtk.Image.new_from_gicon(refresh_metadata_button_icon, Gtk.IconSize.BUTTON))
         refresh_metadata_button.connect("clicked", self.on_refresh_metadata_button_clicked)
 
+        parent_system_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        parent_system_box.set_vexpand(True)
         # Create system mode switch box
         system_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        system_box.set_hexpand(False)
+        system_box.set_vexpand(False)
+        system_box.set_margin_top(0)
+        system_box.set_margin_bottom(0)
+        system_box.set_margin_start(0)
+        system_box.set_margin_end(0)
+        system_box.set_halign(Gtk.Align.CENTER)
 
-        # Create system mode switch
         self.system_switch = Gtk.Switch()
+        self.system_switch.props.valign = Gtk.Align.CENTER
         self.system_switch.connect("notify::active", self.on_system_mode_toggled)
         self.system_switch.set_hexpand(False)
         self.system_switch.set_vexpand(False)
@@ -538,20 +583,79 @@ class MainWindow(Gtk.Window):
         system_label = Gtk.Label(label="System")
 
         # Pack switch and label
-        system_box.pack_end(system_label, False, False, 0)
         system_box.pack_end(self.system_switch, False, False, 0)
-
+        system_box.pack_end(system_label, False, False, 0)
+        system_box.pack_end(about_button, False, False, 0)
+        system_box.pack_end(global_overrides_button, False, False, 0)
+        system_box.pack_end(refresh_metadata_button, False, False, 0)
+        parent_system_box.pack_end(system_box, False, False, 0)
         # Add system controls to header
-        self.top_bar.pack_end(system_box, False, False, 0)
-
-        # Add refresh metadata button
-        self.top_bar.pack_end(global_overrides_button, False, False, 0)
-
-        # Add refresh metadata button
-        self.top_bar.pack_end(refresh_metadata_button, False, False, 0)
+        self.top_bar.pack_end(parent_system_box, False, False, 0)
 
         # Add the top bar to the main box
         self.main_box.pack_start(self.top_bar, False, True, 0)
+
+    def on_about_clicked(self, button):
+        """Show the about dialog with version and license information."""
+        # Create the dialog
+        about_dialog = Gtk.Dialog(
+            title="About Flatshop",
+            parent=self,
+            modal=True,
+            destroy_with_parent=True
+        )
+
+        # Set size
+        about_dialog.set_default_size(400, 200)
+
+        # Create content area
+        content_area = about_dialog.get_content_area()
+
+        # Create main box for content
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        main_box.set_border_width(12)
+
+        # Version label
+        version_label = Gtk.Label(label="Version 1.0.0")
+        copyright_label = Gtk.Label(label=f"Copyright © 2025-{datetime.now().year} Thomas Crider")
+        program_label = Gtk.Label(label="This program comes with absolutely no warranty.")
+
+        license_label = Gtk.Label(label="License:")
+        license_url = Gtk.Label(label="BSD 2-Clause License")
+        license_url.set_use_underline(True)
+        license_url.set_use_markup(True)
+        license_url.set_markup('<span color="#18A3FF">BSD 2-Clause License</span>')
+        license_event_box = Gtk.EventBox()
+        license_event_box.add(license_url)
+        license_event_box.connect("button-release-event",
+                        lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatshop/blob/main/LICENSE"))
+
+        issue_label = Gtk.Label(label="Report an Issue:")
+        issue_url = Gtk.Label(label="https://github.com/GloriousEggroll/flatshop/issue")
+        issue_url.set_use_underline(True)
+        issue_url.set_use_markup(True)
+        issue_url.set_markup('<span color="#18A3FF">https://github.com/GloriousEggroll/flatshop/issue</span>')
+        issue_event_box = Gtk.EventBox()
+        issue_event_box.add(issue_url)
+        issue_event_box.connect("button-release-event",
+                        lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatshop/issues"))
+
+
+
+        # Add all widgets
+        content_area.add(main_box)
+        main_box.pack_start(version_label, False, False, 0)
+        main_box.pack_start(copyright_label, False, False, 0)
+        main_box.pack_start(program_label, False, False, 0)
+        main_box.pack_start(license_label, False, False, 0)
+        main_box.pack_start(license_event_box, False, False, 0)
+        main_box.pack_start(issue_label, False, False, 0)
+        main_box.pack_start(issue_event_box, False, False, 0)
+
+        # Show the dialog
+        about_dialog.show_all()
+        about_dialog.run()
+        about_dialog.destroy()
 
     def on_refresh_metadata_button_clicked(self, button):
         self.refresh_data()
@@ -1179,6 +1283,8 @@ class MainWindow(Gtk.Window):
                 buttons_box.set_halign(Gtk.Align.END)
 
                 update_all_button = Gtk.Button()
+                update_all_button.set_size_request(26, 26)  # 40x40 pixels
+                update_all_button.get_style_context().add_class("app-action-button")
                 update_all_icon = Gio.Icon.new_for_string('system-software-update-symbolic')
                 update_all_button.set_image(Gtk.Image.new_from_gicon(update_all_icon, Gtk.IconSize.BUTTON))
                 update_all_button.connect("clicked", self.on_update_all_button_clicked)
@@ -1410,6 +1516,8 @@ class MainWindow(Gtk.Window):
 
             # Add repository button
             add_repo_button = Gtk.Button()
+            add_repo_button.set_size_request(26, 26)  # 40x40 pixels
+            add_repo_button.get_style_context().add_class("app-action-button")
             add_icon = Gio.Icon.new_for_string('list-add-symbolic')
             add_repo_button.set_image(Gtk.Image.new_from_gicon(add_icon, Gtk.IconSize.BUTTON))
             add_repo_button.connect("clicked", self.on_add_repo_button_clicked)
@@ -1452,6 +1560,8 @@ class MainWindow(Gtk.Window):
 
                 # Create delete button
                 delete_button = Gtk.Button()
+                delete_button.set_size_request(26, 26)  # 40x40 pixels
+                delete_button.get_style_context().add_class("app-action-button")
                 delete_icon = Gio.Icon.new_for_string('list-remove-symbolic')
                 delete_button.set_image(Gtk.Image.new_from_gicon(delete_icon, Gtk.IconSize.BUTTON))
                 delete_button.get_style_context().add_class("destructive-action")
@@ -1502,203 +1612,208 @@ class MainWindow(Gtk.Window):
         return Gtk.Image.new_from_pixbuf(scaled_pb)
 
     def display_apps(self, apps):
+        """Display applications in the right container."""
+        self._clear_container()
+        apps_by_id = self._group_apps_by_id(apps)
+        for app_id, app_data in apps_by_id.items():
+            self._create_and_add_app_row(app_data)
+
+    def _clear_container(self):
+        """Clear all children from the right container."""
         for child in self.right_container.get_children():
             child.destroy()
-        # Create a dictionary to group apps by ID
-        apps_by_id = {}
+
+    def _group_apps_by_id(self, apps):
+        """Group applications by their IDs and collect repositories."""
+        apps_dict = {}
         for app in apps:
             details = app.get_details()
             app_id = details['id']
 
-            # If app_id isn't in dictionary, add it
-            if app_id not in apps_by_id:
-                apps_by_id[app_id] = {
-                    'app': app,
-                    'repos': set()
-                }
+            if app_id not in apps_dict:
+                apps_dict[app_id] = {'app': app, 'repos': set()}
 
-            # Add repository to the set
-            repo_name = details.get('repo', 'unknown')
-            apps_by_id[app_id]['repos'].add(repo_name)
+            apps_dict[app_id]['repos'].add(details.get('repo', 'unknown'))
+        return apps_dict
 
-        # Display each unique application
-        for app_id, app_data in apps_by_id.items():
-            app = app_data['app']
-            details = app.get_details()
-            is_installed = False
-            for package in self.installed_results:
-                if details['id'] == package.id:
-                    is_installed = True
-                    break
-            is_updatable = False
-            for package in self.updates_results:
-                if details['id'] == package.id:
-                    is_updatable = True
-                    break
+    def _create_and_add_app_row(self, app_data):
+        """Create and add a row for a single application."""
+        app = app_data['app']
+        details = app.get_details()
 
-            # Create application container
-            app_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-            app_container.set_spacing(12)
-            app_container.set_margin_top(6)
-            app_container.set_margin_bottom(6)
+        status = self._get_app_status(app)
+        container = self._create_app_container()
+        self._setup_icon(container, details)
+        self._setup_text_layout(container, details, app_data['repos'])
+        self._setup_buttons(container, status, app)
 
-            # Add icon placeholder
-            icon_box = Gtk.Box()
-            icon_box.set_size_request(88, -1)
+        self.right_container.pack_start(container, False, False, 0)
+        self.right_container.pack_start(Gtk.Separator(), False, False, 0)
+        self.right_container.show_all()
 
-            # Create and add the icon
-            app_icon = Gio.Icon.new_for_string('package-x-generic-symbolic')
-            icon_widget = self.create_scaled_icon(app_icon, is_themed=True)
+    def _get_app_status(self, app):
+        """Determine installation and update status of an application."""
+        details = app.get_details()
+        return {
+            'is_installed': any(pkg.id == details['id'] for pkg in self.installed_results),
+            'is_updatable': any(pkg.id == details['id'] for pkg in self.updates_results),
+            'has_donation_url': bool(app.get_details().get('urls', {}).get('donation'))
+        }
 
-            if  details['icon_filename']:
-                if Path(details['icon_path_128'] + "/" + details['icon_filename']).exists():
-                    icon_widget = self.create_scaled_icon(f"{details['icon_path_128']}/{details['icon_filename']}", is_themed=False)
+    def _create_app_container(self):
+        """Create the horizontal container for an application row."""
+        container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        container.set_spacing(12)
+        container.set_margin_top(6)
+        container.set_margin_bottom(6)
+        return container
 
-            icon_widget.set_size_request(64, 64)
-            icon_box.pack_start(icon_widget, True, True, 0)
+    def _setup_icon(self, container, details):
+        """Set up the icon box and icon for the application."""
+        icon_box = Gtk.Box()
+        icon_box.set_size_request(88, -1)
 
-            # Create right side layout for text
-            right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            right_box.set_spacing(4)
-            right_box.set_hexpand(True)
+        icon_widget = self.create_scaled_icon(
+            Gio.Icon.new_for_string('package-x-generic-symbolic'),
+            is_themed=True
+        )
 
-            # Add title
-            title_label = Gtk.Label(label=details['name'])
-            title_label.get_style_context().add_class("app-list-header")
-            title_label.set_halign(Gtk.Align.START)
-            title_label.set_yalign(0.5)  # Use yalign instead of valign
-            title_label.set_hexpand(True)
+        if details['icon_filename']:
+            icon_path = Path(f"{details['icon_path_128']}/{details['icon_filename']}")
+            if icon_path.exists():
+                icon_widget = self.create_scaled_icon(str(icon_path), is_themed=False)
 
-            # Add repository labels
-            kind_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-            kind_box.set_spacing(4)
-            kind_box.set_halign(Gtk.Align.START)
-            kind_box.set_valign(Gtk.Align.START)
+        icon_widget.set_size_request(64, 64)
+        icon_box.pack_start(icon_widget, True, True, 0)
+        container.pack_start(icon_box, False, False, 0)
 
-            kind_label = Gtk.Label(label=f"Type: {details['kind']}")
-            kind_label.get_style_context().add_class("app-type-label")
-            kind_label.set_halign(Gtk.Align.START)
-            kind_box.pack_end(kind_label, False, False, 0)
+    def _setup_text_layout(self, container, details, repos):
+        """Set up the text layout including title, kind, repositories, and description."""
+        right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        right_box.set_spacing(4)
+        right_box.set_hexpand(True)
 
-            # Add repository labels
-            repo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-            repo_box.set_spacing(4)
-            repo_box.set_halign(Gtk.Align.START)
-            repo_box.set_valign(Gtk.Align.START)
+        # Title
+        title_label = Gtk.Label(label=details['name'])
+        title_label.get_style_context().add_class("app-list-header")
+        title_label.set_halign(Gtk.Align.START)
+        title_label.set_yalign(0.5)
+        title_label.set_hexpand(True)
+        right_box.pack_start(title_label, False, False, 0)
 
-            # Add repository labels
-            for repo in sorted(app_data['repos']):
-                repo_label = Gtk.Label(label=f"{repo}")
-                #repo_label.get_style_context().add_class("app-repo-label")
-                repo_label.set_halign(Gtk.Align.START)
-                repo_box.pack_end(repo_label, False, False, 0)
-            repo_list_label = Gtk.Label(label="Sources: ")
-            repo_box.pack_end(repo_list_label, False, False, 0)
+        # Kind label
+        kind_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        kind_box.set_spacing(4)
+        kind_box.set_halign(Gtk.Align.START)
+        kind_box.set_valign(Gtk.Align.START)
 
-            # Add summary
-            desc_label = Gtk.Label(label=details['summary'])
-            desc_label.set_halign(Gtk.Align.START)
-            desc_label.set_yalign(0.5)
-            desc_label.set_hexpand(True)
-            desc_label.set_line_wrap(True)
-            desc_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
-            desc_label.get_style_context().add_class("dim-label")
-            desc_label.get_style_context().add_class("app-list-summary")
+        kind_label = Gtk.Label(label=f"Type: {details['kind']}")
+        kind_box.pack_end(kind_label, False, False, 0)
+        right_box.pack_start(kind_box, False, False, 0)
 
-            # Create buttons box
-            buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-            buttons_box.set_spacing(6)
-            buttons_box.set_margin_top(4)
-            buttons_box.set_halign(Gtk.Align.END)
+        # Repositories
+        repo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        repo_box.set_spacing(4)
+        repo_box.set_halign(Gtk.Align.START)
+        repo_box.set_valign(Gtk.Align.START)
 
-            # Install/Remove button
-            if is_installed:
-                button = self.create_button(
-                    self.on_remove_clicked,
-                    app,
-                    None,
-                    condition=lambda x: True
-                )
-                add_rm_icon = "list-remove-symbolic"
-            else:
-                button = self.create_button(
-                    self.on_install_clicked,
-                    app,
-                    None,
-                    condition=lambda x: True
-                )
-                add_rm_icon = "list-add-symbolic"
+        repo_list_label = Gtk.Label(label="Sources: ")
+        repo_box.pack_start(repo_list_label, False, False, 0)
 
-            if button:
-                use_icon = Gio.Icon.new_for_string(add_rm_icon)
-                button.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-            buttons_box.pack_end(button, False, False, 0)
+        for repo in sorted(repos):
+            repo_label = Gtk.Label(label=f"{repo}")
+            repo_label.set_halign(Gtk.Align.START)
+            repo_box.pack_end(repo_label, False, False, 0)
 
-            # App options button
-            if is_installed:
-                button = self.create_button(
-                    self.on_app_options_clicked,
-                    app,
-                    None,
-                    condition=lambda x: True
-                )
-                add_options_icon = "applications-system-symbolic"
+        right_box.pack_start(repo_box, False, False, 0)
 
-                if button:
-                    use_icon = Gio.Icon.new_for_string(add_options_icon)
-                    button.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-                buttons_box.pack_end(button, False, False, 0)
+        # Description
+        desc_label = Gtk.Label(label=details['summary'])
+        desc_label.set_halign(Gtk.Align.START)
+        desc_label.set_yalign(0.5)
+        desc_label.set_hexpand(True)
+        desc_label.set_line_wrap(True)
+        desc_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
+        desc_label.get_style_context().add_class("dim-label")
+        desc_label.get_style_context().add_class("app-list-summary")
+        right_box.pack_start(desc_label, False, False, 0)
 
-            # Add Update button if available
-            if is_updatable:
-                update_button = self.create_button(
-                    self.on_update_clicked,
-                    app,
-                    None,
-                    condition=lambda x: True
-                )
-                if update_button:
-                    update_icon = Gio.Icon.new_for_string('system-software-update-symbolic')
-                    update_button.set_image(Gtk.Image.new_from_gicon(update_icon, Gtk.IconSize.BUTTON))
-                    buttons_box.pack_end(update_button, False, False, 0)
+        container.pack_start(right_box, True, True, 0)
 
-            # Details button
-            details_btn = self.create_button(
-                self.on_details_clicked,
+    def _setup_buttons(self, container, status, app):
+        """Set up action buttons for the application."""
+        buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        buttons_box.set_spacing(6)
+        buttons_box.set_margin_top(4)
+        buttons_box.set_halign(Gtk.Align.END)
+        buttons_box.set_valign(Gtk.Align.CENTER)  # Center vertically
+
+        self._add_action_button(
+            buttons_box,
+            status['is_installed'],
+            app,
+            self.on_remove_clicked if status['is_installed'] else self.on_install_clicked,
+            "list-remove-symbolic" if status['is_installed'] else "list-add-symbolic",
+            "remove" if status['is_installed'] else "install"
+        )
+
+        if status['is_installed']:
+            self._add_action_button(
+                buttons_box,
+                True,
                 app,
-                None
+                self.on_app_options_clicked,
+                "applications-system-symbolic",
+                "options"
             )
-            if details_btn:
-                details_icon = Gio.Icon.new_for_string('help-about-symbolic')
-                details_btn.set_image(Gtk.Image.new_from_gicon(details_icon, Gtk.IconSize.BUTTON))
-                buttons_box.pack_end(details_btn, False, False, 0)
 
-            # Donate button with condition
-            donate_btn = self.create_button(
+        if status['is_updatable']:
+            self._add_action_button(
+                buttons_box,
+                True,
+                app,
+                self.on_update_clicked,
+                'system-software-update-symbolic',
+                "update"
+            )
+
+        self._add_action_button(
+            buttons_box,
+            True,
+            app,
+            self.on_details_clicked,
+            'help-about-symbolic',
+            "details"
+        )
+
+        if status['has_donation_url']:
+            self._add_action_button(
+                buttons_box,
+                True,
+                app,
                 self.on_donate_clicked,
-                app,
-                None,
-                condition=lambda x: x.get_details().get('urls', {}).get('donation', '')
+                'donate-symbolic',
+                "donate"
             )
-            if donate_btn:
-                donate_icon = Gio.Icon.new_for_string('donate-symbolic')
-                donate_btn.set_image(Gtk.Image.new_from_gicon(donate_icon, Gtk.IconSize.BUTTON))
-                buttons_box.pack_end(donate_btn, False, False, 0)
 
-            # Add widgets to right box
-            right_box.pack_start(title_label, False, False, 0)
-            right_box.pack_start(kind_box, False, False, 0)
-            right_box.pack_start(repo_box, False, False, 0)
-            right_box.pack_start(desc_label, False, False, 0)
-            right_box.pack_start(buttons_box, False, True, 0)
+        container.pack_end(buttons_box, False, False, 0)
 
-            # Add to container
-            app_container.pack_start(icon_box, False, False, 0)
-            app_container.pack_start(right_box, True, True, 0)
-            self.right_container.pack_start(app_container, False, False, 0)
-            self.right_container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+    def _add_action_button(self, parent, visible, app, callback, icon_name, tooltip=None):
+        """Helper method to add a consistent action button."""
+        if not visible:
+            return
 
-        self.right_container.show_all()  # Show all widgets after adding them
+        button = self.create_button(callback, app)
+        if button:
+            # Set consistent size
+            button.set_size_request(26, 26)  # 40x40 pixels
+
+            # Set consistent style
+            button.get_style_context().add_class("app-action-button")
+
+            icon = Gio.Icon.new_for_string(icon_name)
+            button.set_image(Gtk.Image.new_from_gicon(icon, Gtk.IconSize.BUTTON))
+            parent.pack_end(button, False, False, 0)
 
     def show_waiting_dialog(self, message="Please wait while task is running..."):
         """Show a modal dialog with a spinner"""
@@ -1727,32 +1842,34 @@ class MainWindow(Gtk.Window):
 
     def on_install_clicked(self, button=None, app=None):
         """Handle the Install button click with installation options"""
-        id=""
-        if button and app:
-            details = app.get_details()
-            title=f"Install {details['name']}?"
-            label=f"Install: {details['id']}?"
-            id=details['id']
-        # this is a stupid workaround for our button creator
-        # so that we can use the same function in drag and drop
-        # which of course does not have a button object
-        elif app and not button:
-            title=f"Install {app}?"
-            label=f"Install: {app}?"
-        else:
-            message_type=Gtk.MessageType.ERROR
-            finished_dialog = Gtk.MessageDialog(
-                transient_for=self,
-                modal=True,
-                destroy_with_parent=True,
-                message_type=message_type,
-                buttons=Gtk.ButtonsType.OK,
-                text="Error: No app specified"
-            )
-            finished_dialog.run()
-            finished_dialog.destroy()
+        if not app:
+            self._show_error("Error: No app specified")
             return
-        # Create dialog
+
+        title, label = self._get_dialog_details(app, button)
+        dialog = self._create_dialog(title)
+        content_area = self._setup_dialog_content(dialog, label)
+
+        if button and app:
+            self._handle_repository_selection(content_area, app)
+
+        dialog.show_all()
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            self._perform_installation(dialog, app, button)
+
+        dialog.destroy()
+
+    def _get_dialog_details(self, app, button):
+        """Extract dialog details based on input"""
+        if button:
+            details = app.get_details()
+            return f"Install {details['name']}?", f"Install: {details['id']}"
+        return f"Install {app}?", f"Install: {app}"
+
+    def _create_dialog(self, title):
+        """Create and configure the dialog"""
         dialog = Gtk.Dialog(
             title=title,
             transient_for=self,
@@ -1762,89 +1879,85 @@ class MainWindow(Gtk.Window):
         # Add buttons using the new method
         dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
         dialog.add_button("Install", Gtk.ResponseType.OK)
+        return dialog
 
-        # Create content area
+    def _setup_dialog_content(self, dialog, label):
+        """Setup dialog content area"""
         content_area = dialog.get_content_area()
         content_area.set_spacing(12)
         content_area.set_border_width(12)
-
-        # Create repository dropdown
-        repo_combo = Gtk.ComboBoxText()
-
         content_area.pack_start(Gtk.Label(label=label), False, False, 0)
+
+        installation_type = "User" if not self.system_mode else "System"
+        content_area.pack_start(
+            Gtk.Label(label=f"Installation Type: {installation_type}"),
+            False, False, 0
+        )
+        return content_area
+
+    def _handle_repository_selection(self, content_area, app):
+        """Handle repository selection logic"""
+        # Create the combo box
+        self.repo_combo = Gtk.ComboBoxText()
 
         # Search for available repositories containing this app
         searcher = fp_turbo.get_reposearcher(self.system_mode)
-        if self.system_mode is False:
-            content_area.pack_start(Gtk.Label(label="Installation Type: User"), False, False, 0)
-        else:
-            content_area.pack_start(Gtk.Label(label="Installation Type: System"), False, False, 0)
+        repos = fp_turbo.repolist(self.system_mode)
 
-        # Populate repository dropdown
-        if button and app:
-            available_repos = set()
-            repos = fp_turbo.repolist(self.system_mode)
-            for repo in repos:
-                if not repo.get_disabled():
-                    search_results = searcher.search_flatpak(id, repo.get_name())
-                    if search_results:
-                        available_repos.add(repo)
+        # Find repositories that have this specific app
+        app_id = app.get_details()['id']
+        available_repos = {
+            repo for repo in repos
+            if not repo.get_disabled() and
+            searcher.search_flatpak(app_id, repo.get_name())
+        }
 
-            # Add repositories to dropdown
-            if available_repos:
-                repo_combo.remove_all()  # Clear any existing items
+        if available_repos:
+            self.repo_combo.remove_all()  # Clear any existing items
 
-                # Add all repositories
-                for repo in available_repos:
-                    repo_combo.append_text(repo.get_name())
+            # Add all repositories
+            for repo in available_repos:
+                self.repo_combo.append_text(repo.get_name())
 
-                # Only show dropdown if there are multiple repositories
-                if len(available_repos) >= 2:
-                    # Remove and re-add with dropdown visible
-                    content_area.pack_start(repo_combo, False, False, 0)
-                    repo_combo.set_button_sensitivity(Gtk.SensitivityType.AUTO)
-                    repo_combo.set_active(0)
-                else:
-                    # Remove and re-add without dropdown
-                    content_area.remove(repo_combo)
-                    repo_combo.set_active(0)
+            # Only show dropdown if there are multiple repositories
+            if len(available_repos) >= 2:
+                # Remove and re-add with dropdown visible
+                content_area.pack_start(self.repo_combo, False, False, 0)
+                self.repo_combo.set_button_sensitivity(Gtk.SensitivityType.AUTO)
+                self.repo_combo.set_active(0)
             else:
-                repo_combo.remove_all()  # Clear any existing items
-                repo_combo.append_text("No repositories available")
-                content_area.remove(repo_combo)
-            # Show dialog
-            dialog.show_all()
+                # Remove and re-add without dropdown
+                content_area.remove(self.repo_combo)
+                self.repo_combo.set_active(0)
         else:
-            # Show dialog
-            dialog.show_all()
+            self.repo_combo.remove_all()  # Clear any existing items
+            self.repo_combo.append_text("No repositories available")
+            content_area.remove(self.repo_combo)
 
-        # Run dialog
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            selected_repo = None
-            if button and app:
-                selected_repo = repo_combo.get_active_text()
-            # Perform installation
-            def perform_installation():
-                # Show waiting dialog
-                GLib.idle_add(self.show_waiting_dialog)
-                if button and app:
-                    success, message = fp_turbo.install_flatpak(app, selected_repo, self.system_mode)
-                else:
-                    success, message = fp_turbo.install_flatpakref(app, self.system_mode)
-                GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
-                # Start spinner and begin installation
-            thread = threading.Thread(target=perform_installation)
-            thread.daemon = True  # Allow program to exit even if thread is still running
-            thread.start()
-        dialog.destroy()
+    def _perform_installation(self, dialog, app, button):
+        """Handle the installation process"""
+        selected_repo = None
+        if button:
+            selected_repo = self.repo_combo.get_active_text()
+            print(selected_repo)
+
+        def installation_thread():
+            GLib.idle_add(self.show_waiting_dialog)
+            if button:
+                success, message = fp_turbo.install_flatpak(app, selected_repo, self.system_mode)
+            else:
+                success, message = fp_turbo.install_flatpakref(app, self.system_mode)
+            GLib.idle_add(lambda: self.on_task_complete(dialog, success, message))
+
+        thread = threading.Thread(target=installation_thread)
+        thread.daemon = True
+        thread.start()
 
     def on_task_complete(self, dialog, success, message):
-        """Handle tasl completion"""
-        # Update UI
-        message_type=Gtk.MessageType.INFO
+        """Handle task completion"""
+        message_type = Gtk.MessageType.INFO
         if not success:
-            message_type=Gtk.MessageType.ERROR
+            message_type = Gtk.MessageType.ERROR
         if message:
             finished_dialog = Gtk.MessageDialog(
                 transient_for=self,
@@ -1981,6 +2094,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2038,6 +2153,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2103,6 +2220,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2160,6 +2279,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2185,6 +2306,8 @@ class MainWindow(Gtk.Window):
         add_path_row.add(hbox)
 
         btn = Gtk.Button()
+        btn.set_size_request(26, 26)  # 40x40 pixels
+        btn.get_style_context().add_class("app-action-button")
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2265,6 +2388,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2323,6 +2448,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2340,6 +2467,8 @@ class MainWindow(Gtk.Window):
         row.add(hbox)
 
         btn = Gtk.Button()
+        btn.set_size_request(26, 26)  # 40x40 pixels
+        btn.get_style_context().add_class("app-action-button")
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2463,6 +2592,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2521,6 +2652,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2538,6 +2671,8 @@ class MainWindow(Gtk.Window):
         row.add(hbox)
 
         btn = Gtk.Button()
+        btn.set_size_request(26, 26)  # 40x40 pixels
+        btn.get_style_context().add_class("app-action-button")
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -2976,6 +3111,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -3041,6 +3178,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -3065,6 +3204,8 @@ class MainWindow(Gtk.Window):
         add_path_row.add(hbox)
 
         btn = Gtk.Button()
+        btn.set_size_request(26, 26)  # 40x40 pixels
+        btn.get_style_context().add_class("app-action-button")
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -3137,6 +3278,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -3154,6 +3297,8 @@ class MainWindow(Gtk.Window):
         row.add(hbox)
 
         btn = Gtk.Button()
+        btn.set_size_request(26, 26)  # 40x40 pixels
+        btn.get_style_context().add_class("app-action-button")
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -3256,6 +3401,8 @@ class MainWindow(Gtk.Window):
 
                 # Create remove button
                 btn = Gtk.Button()
+                btn.set_size_request(26, 26)  # 40x40 pixels
+                btn.get_style_context().add_class("app-action-button")
                 add_rm_icon = "list-remove-symbolic"
                 use_icon = Gio.Icon.new_for_string(add_rm_icon)
                 btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -3273,6 +3420,8 @@ class MainWindow(Gtk.Window):
         row.add(hbox)
 
         btn = Gtk.Button()
+        btn.set_size_request(26, 26)  # 40x40 pixels
+        btn.get_style_context().add_class("app-action-button")
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
@@ -3737,10 +3886,8 @@ class MainWindow(Gtk.Window):
         # Load the new screenshot
         self._load_screenshot(image, screenshots[index], app_id)
 
-    def on_details_clicked(self, button, app):
-        details = app.get_details()
-
-        # Create window
+    def _create_details_window(self, details):
+        """Create and configure the main details window."""
         self.details_window = Gtk.Window(title=f"{details['name']}")
         self.details_window.set_default_size(900, 600)
 
@@ -3752,25 +3899,30 @@ class MainWindow(Gtk.Window):
         header_bar.set_show_close_button(True)
         self.details_window.set_titlebar(header_bar)
 
-        # Main container with padding
+        # Create main container
         box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         box_outer.set_border_width(20)
         box_outer.set_border_width(0)
         self.details_window.add(box_outer)
 
-        # Scrolled window for content
+        return box_outer
+
+    def _create_content_area(self, box_outer):
+        """Create the scrolled content area."""
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_border_width(0)
-        box_outer.pack_start(scrolled, True, True, 0)
 
-        # Content box
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         content_box.set_border_width(0)
         content_box.get_style_context().add_class("details-window")
         scrolled.add(content_box)
 
-        # Icon section - New implementation
+        box_outer.pack_start(scrolled, True, True, 0)
+        return content_box
+
+    def _create_icon_section(self, content_box, details):
+        """Create the icon section of the details window."""
         icon_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         icon_row.set_border_width(0)
 
@@ -3780,17 +3932,23 @@ class MainWindow(Gtk.Window):
         app_icon = Gio.Icon.new_for_string('package-x-generic-symbolic')
         icon_widget = self.create_scaled_icon(app_icon, is_themed=True)
 
-        if details['icon_filename']:
-            if Path(details['icon_path_128'] + "/" + details['icon_filename']).exists():
-                icon_widget = self.create_scaled_icon(
-                    f"{details['icon_path_128']}/{details['icon_filename']}",
-                    is_themed=False
-                )
+        if details['icon_filename'] and Path(details['icon_path_128'] + "/" + details['icon_filename']).exists():
+            icon_widget = self.create_scaled_icon(
+                f"{details['icon_path_128']}/{details['icon_filename']}",
+                is_themed=False
+            )
 
         icon_widget.set_size_request(64, 64)
         icon_box.pack_start(icon_widget, True, True, 0)
 
-        # Middle column - Name, Version, Developer
+        content_box.pack_start(icon_row, False, True, 0)
+        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+
+    def _create_info_section(self, content_box, details):
+        """Create the information section with name, version, and developer."""
+        info_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+
+        # Middle column
         middle_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         name_label = Gtk.Label(label=f"{details['name']}")
         name_label.get_style_context().add_class("large-title")
@@ -3804,7 +3962,7 @@ class MainWindow(Gtk.Window):
         middle_column.pack_start(version_label, False, True, 0)
         middle_column.pack_start(developer_label, False, True, 0)
 
-        # Right column - ID and Kind
+        # Right column
         right_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         id_label = Gtk.Label(label=f"ID: {details['id']}")
         id_label.set_xalign(0)
@@ -3813,129 +3971,154 @@ class MainWindow(Gtk.Window):
         right_column.pack_start(id_label, False, True, 0)
         right_column.pack_start(kind_label, False, True, 0)
 
-        # Assemble the row
-        icon_row.pack_start(icon_box, False, False, 0)
-        icon_row.pack_start(middle_column, True, True, 0)
-        icon_row.pack_start(right_column, False, True, 0)
+        info_box.pack_start(middle_column, True, True, 0)
+        info_box.pack_start(right_column, False, True, 0)
 
-        content_box.pack_start(icon_row, False, True, 0)
-
+        content_box.pack_start(info_box, False, True, 0)
         content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
-        # Add the slideshow after the icon
+    def _create_text_section(self, title, text):
+        """Create a text section with title and content."""
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+
+        title_label = Gtk.Label(label=f"{title}:")
+        title_label.set_xalign(0)
+
+        text_view = Gtk.TextView()
+        text_view.set_editable(False)
+        text_view.set_cursor_visible(False)
+        text_view.set_wrap_mode(Gtk.WrapMode.WORD)
+        text_view.get_style_context().add_class("details-textview")
+
+        # Parse HTML and insert into TextView
+        buffer = text_view.get_buffer()
+        if title == "Description":
+            try:
+
+                class TextExtractor(HTMLParser):
+                    def __init__(self):
+                        super().__init__()
+                        self.text = []
+
+                    def handle_data(self, data):
+                        self.text.append(data)
+
+                    def handle_starttag(self, tag, attrs):
+                        if tag == 'p':
+                            self.text.append('\n')
+                        elif tag == 'ul':
+                            self.text.append('\n')
+                        elif tag == 'li':
+                            self.text.append('• ')
+
+                    def handle_endtag(self, tag):
+                        if tag == 'li':
+                            self.text.append('\n')
+                        elif tag == 'ul':
+                            self.text.append('\n')
+
+                # Parse the HTML
+                parser = TextExtractor()
+                parser.feed(text)
+                parsed_text = ''.join(parser.text)
+
+                # Add basic HTML styling
+                buffer.set_text(parsed_text)
+                text_view.set_left_margin(10)
+                text_view.set_right_margin(10)
+                text_view.set_pixels_above_lines(4)
+                text_view.set_pixels_below_lines(4)
+
+            except Exception:
+                # Fallback to plain text if HTML parsing fails
+                buffer.set_text(text)
+        else:
+            buffer.set_text(text)
+
+        box.pack_start(title_label, False, True, 0)
+        box.pack_start(text_view, True, True, 0)
+        return box
+
+    def _create_url_section(self, url_type, url):
+        """Create a URL section with clickable link."""
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+
+        label_widget = Gtk.Label(label=f"{url_type.capitalize()}:")
+        label_widget.set_xalign(0)
+
+        url_label = Gtk.Label(label=url)
+        url_label.set_use_underline(True)
+        url_label.set_use_markup(True)
+        url_label.set_markup(f'<span color="#18A3FF">{url}</span>')
+        url_label.set_halign(Gtk.Align.START)
+
+        event_box = Gtk.EventBox()
+        event_box.add(url_label)
+        event_box.connect("button-release-event",
+                        lambda w, e: Gio.AppInfo.launch_default_for_uri(url))
+
+        box.pack_start(label_widget, False, True, 0)
+        box.pack_start(event_box, True, True, 0)
+        return box
+
+    def on_details_clicked(self, button, app):
+        """Initialize the details window setup process."""
+        details = app.get_details()
+
+        # Create window and main container
+        box_outer = self._create_details_window(details)
+
+        # Create content area
+        content_box = self._create_content_area(box_outer)
+
+        # Add icon section
+        self._create_icon_section(content_box, details)
+
+        # Add info section
+        self._create_info_section(content_box, details)
+
+        # Add screenshots
         screenshot_slideshow = self.create_screenshot_slideshow(details['screenshots'], details['id'])
         screenshot_slideshow.set_border_width(0)
         content_box.pack_start(screenshot_slideshow, False, True, 0)
 
-        def create_text_section(title, text):
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-
-            title_label = Gtk.Label(label=f"{title}:")
-            title_label.set_xalign(0)
-
-            # Create a TextView for HTML content
-            text_view = Gtk.TextView()
-            text_view.set_editable(False)
-            text_view.set_cursor_visible(False)
-            text_view.set_wrap_mode(Gtk.WrapMode.WORD)
-
-            # Remove background
-            text_view.get_style_context().add_class("details-textview")
-
-            # Parse HTML and insert into TextView
-            buffer = text_view.get_buffer()
-            if title == "Description":
-                try:
-
-                    class TextExtractor(HTMLParser):
-                        def __init__(self):
-                            super().__init__()
-                            self.text = []
-
-                        def handle_data(self, data):
-                            self.text.append(data)
-
-                        def handle_starttag(self, tag, attrs):
-                            if tag == 'p':
-                                self.text.append('\n')
-                            elif tag == 'ul':
-                                self.text.append('\n')
-                            elif tag == 'li':
-                                self.text.append('• ')
-
-                        def handle_endtag(self, tag):
-                            if tag == 'li':
-                                self.text.append('\n')
-                            elif tag == 'ul':
-                                self.text.append('\n')
-
-                    # Parse the HTML
-                    parser = TextExtractor()
-                    parser.feed(text)
-                    parsed_text = ''.join(parser.text)
-
-                    # Add basic HTML styling
-                    buffer.set_text(parsed_text)
-                    text_view.set_left_margin(10)
-                    text_view.set_right_margin(10)
-                    text_view.set_pixels_above_lines(4)
-                    text_view.set_pixels_below_lines(4)
-
-                except Exception:
-                    # Fallback to plain text if HTML parsing fails
-                    buffer.set_text(text)
-            else:
-                buffer.set_text(text)
-
-            box.pack_start(title_label, False, True, 0)
-            box.pack_start(text_view, True, True, 0)
-            return box
-
-        def create_url_section(url_type, url):
-            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-
-            label_widget = Gtk.Label(label=f"{url_type.capitalize()}:")
-            label_widget.set_xalign(0)
-
-            # Create a clickable URL label
-            url_label = Gtk.Label(label=url)
-            url_label.set_use_underline(True)
-            url_label.set_use_markup(True)
-            url_label.set_markup(f'<span color="#18A3FF">{url}</span>')
-            url_label.set_halign(Gtk.Align.START)
-
-            # Connect click event
-            event_box = Gtk.EventBox()
-            event_box.add(url_label)
-            event_box.connect("button-release-event",
-                            lambda w, e: Gio.AppInfo.launch_default_for_uri(url))
-
-            box.pack_start(label_widget, False, True, 0)
-            box.pack_start(event_box, True, True, 0)
-            return box
-
-        summary_section = create_text_section("Summary", details['summary'])
+        # Add summary section
+        summary_section = self._create_text_section("Summary", details['summary'])
         content_box.pack_start(summary_section, False, True, 0)
-        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
+                            False, False, 0)
 
-        # URLs section
+        # Add URLs section
         urls_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
 
         for url_type, url in details['urls'].items():
-            row = create_url_section(url_type, url)
+            row = self._create_url_section(url_type, url)
             urls_section.pack_start(row, False, True, 0)
-        urls_section.pack_start(create_url_section("Flathub Page", f"https://flathub.org/apps/details/{details['id']}"), False, True, 0)
-
+        urls_section.pack_start(self._create_url_section("Flathub Page",
+            f"https://flathub.org/apps/details/{details['id']}"), False, True, 0)
         content_box.pack_start(urls_section, False, True, 0)
+        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
+                            False, False, 0)
 
-        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
-
-        description_section = create_text_section("Description", details['description'])
+        # Add description section
+        description_section = self._create_text_section("Description",
+            details['description'])
         content_box.pack_start(description_section, False, True, 0)
 
+        # Connect destroy signal and show window
         self.details_window.connect("destroy", lambda w: w.destroy())
         self.details_window.show_all()
-        scrolled.get_vadjustment().set_value(0)
+        # With these lines:
+        children = self.details_window.get_children()
+        if children:
+            first_child = children[0]
+            if first_child.get_children():
+                scrolled = first_child.get_children()[0]
+                scrolled.get_vadjustment().set_value(0)
+            else:
+                scrolled = None
+        else:
+            scrolled = None
 
 
     def on_donate_clicked(self, button, app):
