@@ -20,7 +20,7 @@ from datetime import datetime
 
 class MainWindow(Gtk.Window):
     def __init__(self):
-        super().__init__(title="Flatshop")
+        super().__init__(title="Flatpost")
         # Store search results as an instance variable
         self.all_apps = []
         self.current_component_type = None
@@ -599,7 +599,7 @@ class MainWindow(Gtk.Window):
         """Show the about dialog with version and license information."""
         # Create the dialog
         about_dialog = Gtk.Dialog(
-            title="About Flatshop",
+            title="About Flatpost",
             parent=self,
             modal=True,
             destroy_with_parent=True
@@ -628,17 +628,17 @@ class MainWindow(Gtk.Window):
         license_event_box = Gtk.EventBox()
         license_event_box.add(license_url)
         license_event_box.connect("button-release-event",
-                        lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatshop/blob/main/LICENSE"))
+                        lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatpost/blob/main/LICENSE"))
 
         issue_label = Gtk.Label(label="Report an Issue:")
-        issue_url = Gtk.Label(label="https://github.com/GloriousEggroll/flatshop/issue")
+        issue_url = Gtk.Label(label="https://github.com/GloriousEggroll/flatpost/issue")
         issue_url.set_use_underline(True)
         issue_url.set_use_markup(True)
-        issue_url.set_markup('<span color="#18A3FF">https://github.com/GloriousEggroll/flatshop/issue</span>')
+        issue_url.set_markup('<span color="#18A3FF">https://github.com/GloriousEggroll/flatpost/issue</span>')
         issue_event_box = Gtk.EventBox()
         issue_event_box.add(issue_url)
         issue_event_box.connect("button-release-event",
-                        lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatshop/issues"))
+                        lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatpost/issues"))
 
 
 
@@ -3860,7 +3860,7 @@ class MainWindow(Gtk.Window):
         image_data = fp_turbo.screenshot_details(screenshot)
         url = image_data.get_url()
 
-        local_path = f"{home_dir}/.local/share/flatshop/app-screenshots/{app_id}/{os.path.basename(url)}"
+        local_path = f"{home_dir}/.local/share/flatpost/app-screenshots/{app_id}/{os.path.basename(url)}"
 
         if os.path.exists(local_path):
             image.set_from_file(local_path)
