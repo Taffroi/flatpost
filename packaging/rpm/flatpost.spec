@@ -16,7 +16,7 @@ License:       BSD 2-Clause
 Summary:       Desktop environment agnostic Flathub software center.
 
 URL:            https://github.com/gloriouseggroll/flatpost
-Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
+Source0:        %{url}/archive/refs/tags/%{tag}.tar.gz#/%{name}-%{tag}.tar.gz
 
 BuildArch:      noarch
 BuildRequires:  python3-devel
@@ -47,7 +47,7 @@ Desktop environment agnostic Flathub software center. Allows for browsing,
 installation, removal, updating, and permission management of flatpak packages and repositories.
 
 %prep
-%autosetup -p1 -n flatpost-%{version}
+%autosetup -p 1
 
 %build
 make all DESTDIR=%{buildroot}
