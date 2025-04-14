@@ -3,7 +3,7 @@ TARGET_DIR := $(DESTDIR)$(PYTHON_SITE_PACKAGES)/flatpost
 BIN_DIR := $(DESTDIR)/usr/bin
 DESKTOP_DIR := $(DESTDIR)/usr/share/applications
 DATA_DIR := $(DESTDIR)/usr/share/flatpost
-ICON_DIR := $(DESTDIR)/usr/share/icons/hicolor/1024x1024/apps
+ICON_DIR := $(DESTDIR)/usr/share/icons/hicolor
 LICENSE_DIR := $(DESTDIR)/usr/share/licenses/flatpost
 
 .PHONY: all install clean
@@ -28,8 +28,9 @@ install:
 	install -m 644 data/usr/share/flatpost/collections_data.json $(DATA_DIR)/collections_data.json
 
 	@echo "Installing icon file to $(ICON_DIR)"
-	mkdir -p $(ICON_DIR)
-	install -m 644 data/usr/share/icons/hicolor/1024x1024/apps/com.flatpost.flatpostapp.png $(ICON_DIR)/com.flatpost.flatpostapp.png
+	mkdir -p $(ICON_DIR)/{1024x1024,64x64}/apps
+	install -m 644 data/usr/share/icons/hicolor/1024x1024/apps/com.flatpost.flatpostapp.png $(ICON_DIR)/1024x1024/apps/com.flatpost.flatpostapp.png
+	install -m 644 data/usr/share/icons/hicolor/64x64/apps/com.flatpost.flatpostapp.png $(ICON_DIR)/64x64/apps/com.flatpost.flatpostapp.png
 
 	@echo "Installing license file to $(LICENSE_DIR)"
 	mkdir -p $(LICENSE_DIR)
@@ -41,5 +42,6 @@ clean:
 	rm -f $(BIN_DIR)/flatpost
 	rm -f $(DESKTOP_DIR)/com.flatpost.flatpostapp.desktop
 	rm -f $(DATA_DIR)/collections_data.json
-	rm -f $(ICON_DIR)/com.flatpost.flatpostapp.png
+	rm -f $(ICON_DIR)/1024x1024/apps/com.flatpost.flatpostapp.png
+	rm -f $(ICON_DIR)/64x64/apps/com.flatpost.flatpostapp.png
 	rm -f $(LICENSE_DIR)/com.flatpost.flatpostapp.png
