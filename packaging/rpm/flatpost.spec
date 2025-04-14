@@ -1,6 +1,17 @@
+%global tag 1.0.0
+
+# Manual commit is auto-inserted by workflow
+%global commit 35fa9a68d94bde4ed68a6bd07482b2a87a8d42df
+
+%global shortcommit %(c=%{commit}; echo ${c:0:7})
+
+%global build_timestamp %(date +"%Y%m%d")
+
+%global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
+
 Name:          flatpost
 Version:       1.0.0
-Release:       1%{?dist}
+Release:       %{rel_build}
 License:       BSD 2-Clause
 Summary:       Desktop environment agnostic Flathub software center.
 
