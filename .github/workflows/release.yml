@@ -19,5 +19,5 @@ jobs:
       version: ${{ github.ref_name }}
       file1: flatpost-${{ github.ref_name }}.fc41.rpm
       name1: flatpost-${{ github.ref_name }}.fc41.rpm
-      file1: flatpost-${{ github.ref_name }}.fc41.src.rpm
-      name1: flatpost-${{ github.ref_name }}.fc41.src.rpm
+      file2: flatpost-${{ github.ref_name }}.fc41.src.rpm
+      name2: flatpost-${{ github.ref_name }}.fc41.src.rpm
