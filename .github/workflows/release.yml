@@ -1,4 +1,4 @@
-iname: Build and upload release
+name: Build and upload release
 
 on:
   release:
