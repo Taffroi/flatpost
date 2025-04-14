@@ -10,7 +10,7 @@
 %global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:          flatpost
-Version:       1.0.0
+Version:       %{tag}
 Release:       %{rel_build}
 License:       BSD 2-Clause
 Summary:       Desktop environment agnostic Flathub software center.
