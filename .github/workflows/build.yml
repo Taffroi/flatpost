@@ -1,0 +1,21 @@
+name: Build and upload development artifacts
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  version:
+    name: Describe
+    uses: ./.github/workflows/build-flatpost-version.yml
+
+  fedora41-build:
+    name: Fedora 41 Build
+    uses: ./.github/workflows/build-flatpost-f41.yml
+    needs: version
+    with:
+      version: ${{ needs.version.outputs.version }}
+      shasum: ${{ github.sha }}
+
