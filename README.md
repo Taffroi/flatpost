@@ -1,5 +1,7 @@
 ![screenshot](screenshots/flatshop_agnostic.png)
 ![screenshot](screenshots/flatshop_agnostic2.png)
+![screenshot](screenshots/flatshop_agnostic3.png)
+![screenshot](screenshots/flatshop_agnostic4.png)
 
 
 I wanted a desktop environment agnostic flatpak store that didn't require pulling in gnome or kde dependencies.
@@ -50,11 +52,8 @@ DONE:
 TODO:
 - Document fp_turbo functions
 
-Usage (Temporary until proper packaging is added):
 
-Shop: `./main.py`
-
-CLI:
+The fp_turbo.py library can double as a standalone CLI tool:
 ```
 ./fp_turbo.py -h
 usage: fp_turbo.py [-h] [--id ID] [--repo REPO] [--list-all] [--categories] [--subcategories] [--list-installed] [--check-updates] [--list-repos] [--add-repo REPO_FILE] [--remove-repo REPO_NAME] [--toggle-repo ENABLE/DISABLE]
