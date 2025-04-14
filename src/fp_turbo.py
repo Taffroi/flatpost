@@ -442,6 +442,7 @@ class AppstreamSearcher:
         search_results = []
         packages = self.remotes[repo_name]
         found = None
+
         for package in packages:
             # Try matching exact ID first
             if keyword is package.id:
@@ -783,7 +784,7 @@ class AppstreamSearcher:
         for group_name, categories in self.category_groups.items():
             for category, title in categories.items():
                 if category not in self.category_groups['system']:
-                    self._process_category(searcher, category, current_category, total_categories)
+                    self._process_category(searcher, category, current_category, total_categories, system)
                 else:
                     self._process_system_category(searcher, category, system)
                 current_category += 1
@@ -791,11 +792,11 @@ class AppstreamSearcher:
 
         return self._get_current_results()
 
-    def _process_category(self, searcher, category, current_category, total_categories):
+    def _process_category(self, searcher, category, current_category, total_categories, system=False):
         """Process a single category and retrieve its metadata."""
 
         if self._should_refresh():
-            self._refresh_category_data(searcher, category)
+            self._refresh_category_data(searcher, category, system)
 
         app_data_dir = Path.home() / ".local" / "share" / "flatpost"
         app_data_dir.mkdir(parents=True, exist_ok=True)
@@ -805,7 +806,7 @@ class AppstreamSearcher:
                 collections_data = json.load(f)
                 self._update_from_collections(collections_data, category)
         except (IOError, json.JSONDecodeError) as e:
-            logger.error(f"Error loading collections data: {str(e)}")
+            pass
 
         self.refresh_progress = (current_category / total_categories) * 100
 
@@ -1190,14 +1191,21 @@ def download_repo(url):
 
 def get_metadata_path(app_id: str | None, override=False, system=False) -> str:
     metadata_path = ""
-    if override:
+    if app_id:
+        # Get the application's metadata file
+        installation = get_installation(system)
+        app_path = installation.get_current_installed_app(app_id).get_deploy_dir()
+        if not app_path:
+            print(f"Application {app_id} not found")
+            return metadata_path
+        metadata_path = app_path + "/metadata"
+    elif override:
         if system:
             metadata_path = "/var/lib/flatpak/overrides/global"
             if not os.path.exists(metadata_path):
                 os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
                 with open(metadata_path, 'w') as f:
                         pass
-
         else:
             home_dir = os.path.expanduser("~")
             metadata_path = f"{home_dir}/.local/share/flatpak/overrides/global"
@@ -1205,16 +1213,6 @@ def get_metadata_path(app_id: str | None, override=False, system=False) -> str:
                 os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
                 with open(metadata_path, 'w') as f:
                         pass
-
-    elif app_id:
-            # Get the application's metadata file
-            installation = get_installation(system)
-            app_path = installation.get_current_installed_app(app_id).get_deploy_dir()
-            if not app_path:
-                print(f"Application {app_id} not found")
-                return metadata_path
-            metadata_path = app_path + "/metadata"
-
     if not os.path.exists(metadata_path):
         print(f"Metadata file not found for {app_id}")
         return metadata_path
@@ -1249,9 +1247,8 @@ def add_file_permissions(app_id: str, path: str, perm_type=None, system=False) -
     Returns:
         tuple[bool, str]: (success, message)
     """
-
     try:
-        key_file = get_perm_key_file(app_id, system)
+        key_file = get_perm_key_file(app_id, False, system)
         perm_type = perm_type or "filesystems"
         # Handle special case for home directory
         if path.lower() == "host":
@@ -1320,7 +1317,7 @@ def remove_file_permissions(app_id: str, path: str, perm_type=None, system=False
         tuple[bool, str]: (success, message)
     """
     try:
-        key_file = get_perm_key_file(app_id, system)
+        key_file = get_perm_key_file(app_id, False, system)
         perm_type = perm_type or "filesystems"
 
         # Handle special case for home directory
@@ -1389,7 +1386,7 @@ def list_file_perms(app_id: str, system=False) -> tuple[bool, dict[str, list[str
                 - 'special_paths': list of special paths (home, host, etc.)
     """
     try:
-        key_file = get_perm_key_file(app_id, system)
+        key_file = get_perm_key_file(app_id, False, system)
 
         # Initialize result dictionary
         result = {
@@ -1430,7 +1427,7 @@ def list_other_perm_toggles(app_id: str, perm_type: str, system=False) -> tuple[
                 - 'paths': list of filesystem paths
     """
     try:
-        key_file = get_perm_key_file(app_id, system)
+        key_file = get_perm_key_file(app_id, False, system)
 
         # Initialize result dictionary
         result = {
@@ -1475,7 +1472,7 @@ def toggle_other_perms(app_id: str, perm_type: str, option: str, enable: bool, s
         bool: True if successful, False if operation failed
     """
     # Get the KeyFile object
-    key_file = get_perm_key_file(app_id, system)
+    key_file = get_perm_key_file(app_id, False, system)
 
     if not key_file:
         return False, f"Failed to get permissions for {app_id}"
@@ -1541,7 +1538,7 @@ def list_other_perm_values(app_id: str, perm_type: str, system=False) -> tuple[b
                 - 'paths': list of environment variables
     """
     try:
-        key_file = get_perm_key_file(app_id, system)
+        key_file = get_perm_key_file(app_id, False, system)
 
         # Initialize result dictionary
         result = {
@@ -1594,7 +1591,7 @@ def add_permission_value(app_id: str, perm_type: str, value: str, system=False) 
         tuple[bool, str]: (success, message)
     """
     try:
-        key_file = get_perm_key_file(app_id, system)
+        key_file = get_perm_key_file(app_id, False, system)
 
         # Convert perm_type to the correct format
         match perm_type.lower():
@@ -1642,7 +1639,7 @@ def remove_permission_value(app_id: str, perm_type: str, value: str, system=Fals
         tuple[bool, str]: (success, message)
     """
     try:
-        key_file = get_perm_key_file(app_id, system)
+        key_file = get_perm_key_file(app_id, False, system)
 
         # Convert perm_type to the correct format
         match perm_type.lower():

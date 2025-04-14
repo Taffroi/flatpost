@@ -16,11 +16,16 @@ from pathlib import Path
 from html.parser import HTMLParser
 import requests
 import os
+import pwd
 from datetime import datetime
 
 class MainWindow(Gtk.Window):
-    def __init__(self):
+    def __init__(self, system_mode=False):
         super().__init__(title="Flatpost")
+        self.system_mode = system_mode
+        self.system_switch = Gtk.Switch()
+        if self.system_mode:
+            self.system_switch.set_active(True)
 
         # Step 1: Verify file exists and is accessible
         icon_path = "/usr/share/icons/hicolor/1024x1024/apps/com.flatpost.flatpostapp.png"
@@ -57,7 +62,6 @@ class MainWindow(Gtk.Window):
         self.collection_results = []  # Initialize empty list
         self.installed_results = []  # Initialize empty list
         self.updates_results = []  # Initialize empty list
-        self.system_mode = False
         self.current_page = None  # Track current page
         self.current_group = None  # Track current group (system/collections/categories)
 
@@ -599,7 +603,6 @@ class MainWindow(Gtk.Window):
         system_box.set_margin_end(0)
         system_box.set_halign(Gtk.Align.CENTER)
 
-        self.system_switch = Gtk.Switch()
         self.system_switch.props.valign = Gtk.Align.CENTER
         self.system_switch.connect("notify::active", self.on_system_mode_toggled)
         self.system_switch.set_hexpand(False)
@@ -706,18 +709,67 @@ class MainWindow(Gtk.Window):
             self.current_component_type = None
         self.refresh_current_page()
 
+    def relaunch_as_user(self):
+        uid = int(os.environ.get('ORIG_USER', ''))
+        try:
+            pw_record = pwd.getpwuid(uid)
+            username = pw_record.pw_name
+            user_home = pw_record.pw_dir
+            gid = pw_record.pw_gid
+
+            # Drop privileges before exec
+            os.setgid(gid)
+            os.setuid(uid)
+
+            # Update environment
+            os.environ["HOME"] = user_home
+            os.environ["LOGNAME"] = username
+            os.environ["USER"] = username
+            os.environ["XDG_RUNTIME_DIR"] = f"/run/user/{uid}"
+
+            # Re-exec the script
+            script_path = Path(__file__).resolve()
+            os.execvp(
+                sys.executable,
+                [sys.executable, str(script_path)]
+            )
+
+        except Exception as e:
+            print(f"Failed to drop privileges and exec: {e}")
+            sys.exit(1)
+
     def on_system_mode_toggled(self, switch, gparam):
         """Handle system mode toggle switch state changes"""
         desired_state = switch.get_active()
 
         if desired_state:
-            # Request superuser validation
+            # Get current script path
+            current_script = sys.argv[0]
+
+            # Re-execute as root with system mode enabled
             try:
-                #subprocess.run(['pkexec', 'true'], check=True)
-                self.system_mode = True
-                self.refresh_data()
-                self.refresh_current_page()
+                # Construct command to re-execute with system mode enabled
+                script_path = Path(__file__).resolve()
+                os.execvp(
+                    "pkexec",
+                    [
+                        "pkexec",
+                        "--disable-internal-agent",
+                        "env",
+                        f"DISPLAY={os.environ['DISPLAY']}",
+                        f"XAUTHORITY={os.environ.get('XAUTHORITY', '')}",
+                        f"XDG_CURRENT_DESKTOP={os.environ.get('XDG_CURRENT_DESKTOP', '').lower()}",
+                        f"ORIG_USER={os.getuid()!s}",
+                        f"PKEXEC_UID={os.getuid()!s}",
+                        "G_MESSAGES_DEBUG=none",
+                        sys.executable,
+                        str(script_path),
+                        '--system-mode',
+                    ]
+                )
+
             except subprocess.CalledProcessError:
+                # Authentication failed, reset switch and show error
                 switch.set_active(False)
                 dialog = Gtk.MessageDialog(
                     transient_for=self,
@@ -729,19 +781,28 @@ class MainWindow(Gtk.Window):
                 dialog.connect("response", lambda d, r: d.destroy())
                 dialog.show()
         else:
-            if self.system_mode == True:
-                self.system_mode = False
-                self.refresh_data()
-                self.refresh_current_page()
-            elif self.system_mode == False:
-                self.system_mode = True
-                self.refresh_data()
-                self.refresh_current_page()
+            try:
+                # Construct command to re-execute with system mode enabled
+                self.relaunch_as_user()
+                sys.exit(0)
+
+            except subprocess.CalledProcessError:
+                # Authentication failed, reset switch and show error
+                switch.set_active(True)
+                dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="Authentication failed",
+                    secondary_text="Could not enable user mode"
+                )
+                dialog.connect("response", lambda d, r: d.destroy())
+                dialog.show()
+
 
     def populate_repo_dropdown(self):
         # Get list of repositories
-        fp_turbo.repolist(self.system_mode)
-        repos = fp_turbo.repolist()
+        repos = fp_turbo.repolist(self.system_mode)
 
         # Clear existing items
         self.repo_dropdown.remove_all()
@@ -2768,7 +2829,6 @@ class MainWindow(Gtk.Window):
 
         indicator = Gtk.Label(label="* = global override", xalign=1.0)
         indicator.get_style_context().add_class("permissions-global-indicator")
-
         # Add other sections with correct permission types
         self._add_section(app_id, listbox, "Shared", "shared", [
             ("Network", "network", "Can communicate over network"),
@@ -2903,7 +2963,6 @@ class MainWindow(Gtk.Window):
             success, perms = fp_turbo.list_other_perm_toggles(app_id, perm_type, self.system_mode)
             if not success:
                 perms = {"paths": []}
-
         if section_options:
             # Add options
             for display_text, option, description in section_options:
@@ -3701,7 +3760,7 @@ class MainWindow(Gtk.Window):
                     self.system_mode
                 )
             elif perm_type == "filesystems":
-                success, message = fp_turbo.remove_file_permissions(
+                success, message = fp_turbo.global_remove_file_permissions(
                     path,
                     "filesystems",
                     True,
@@ -4431,12 +4490,20 @@ class MainWindow(Gtk.Window):
             self.on_category_clicked('trending', 'collections')
 
 def main():
+    # Initialize GTK before anything else
+    if not Gtk.init_check():
+        print("Failed to initialize GTK")
+        return 1
+
+    system_mode = False
     # Check for command line argument
     if len(sys.argv) > 1:
         arg = sys.argv[1]
+        if arg == '--system-mode':
+            system_mode = True
         if arg.endswith('.flatpakref'):
             # Create a temporary window just to handle the installation
-            app = MainWindow()
+            app = MainWindow(system_mode=system_mode)
             app.handle_flatpakref_file(arg)
             # Keep the window open for 5 seconds to show the result
             GLib.timeout_add_seconds(5, Gtk.main_quit)
@@ -4444,13 +4511,13 @@ def main():
             return
         if arg.endswith('.flatpakrepo'):
             # Create a temporary window just to handle the installation
-            app = MainWindow()
+            app = MainWindow(system_mode=system_mode)
             app.handle_flatpakrepo_file(arg)
             # Keep the window open for 5 seconds to show the result
             GLib.timeout_add_seconds(5, Gtk.main_quit)
             Gtk.main()
             return
-    app = MainWindow()
+    app = MainWindow(system_mode=system_mode)
     app.connect("destroy", Gtk.main_quit)
     app.show_all()
     Gtk.main()
