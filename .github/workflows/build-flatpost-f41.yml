@@ -29,7 +29,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Install build dependencies
-        run: dnf install -y git make python3-devel python3-build
+        run: dnf install -y git rpm-build make python3-devel python3-build
 
       - name: Extract Version and SHA
         run: |
