@@ -20,13 +20,23 @@ import pwd
 from datetime import datetime
 
 class MainWindow(Gtk.Window):
-    def __init__(self, system_mode=False):
-        super().__init__(title="Flatpost")
+    def __init__(self, system_mode=False, system_only_mode=False):
+        app_title = "Flatpost (user mode)"
+        if system_only_mode:
+            app_title = "Flatpost (system-only mode)"
+        elif system_mode:
+            app_title = "Flatpost (system mode)"
+        super().__init__(title=app_title)
         self.system_mode = system_mode
+        self.system_only_mode = system_only_mode
         self.system_switch = Gtk.Switch()
+        # Create system mode label
+        self.system_label = Gtk.Label(label="System Mode")
         if self.system_mode:
             self.system_switch.set_active(True)
-
+        if self.system_only_mode:
+            self.system_switch.set_active(True)
+            self.system_switch.set_sensitive(False)
         # Step 1: Verify file exists and is accessible
         icon_path = "/usr/share/icons/hicolor/1024x1024/apps/com.flatpost.flatpostapp.png"
         if not os.path.exists(icon_path):
@@ -600,7 +610,7 @@ class MainWindow(Gtk.Window):
         system_box.set_margin_top(0)
         system_box.set_margin_bottom(0)
         system_box.set_margin_start(0)
-        system_box.set_margin_end(0)
+        system_box.set_margin_end(6)
         system_box.set_halign(Gtk.Align.CENTER)
 
         self.system_switch.props.valign = Gtk.Align.CENTER
@@ -608,12 +618,10 @@ class MainWindow(Gtk.Window):
         self.system_switch.set_hexpand(False)
         self.system_switch.set_vexpand(False)
 
-        # Create system mode label
-        system_label = Gtk.Label(label="System")
-
         # Pack switch and label
-        system_box.pack_end(self.system_switch, False, False, 0)
-        system_box.pack_end(system_label, False, False, 0)
+        if not self.system_only_mode:
+            system_box.pack_end(self.system_switch, False, False, 0)
+            system_box.pack_end(self.system_label, False, False, 0)
         system_box.pack_end(about_button, False, False, 0)
         system_box.pack_end(global_overrides_button, False, False, 0)
         system_box.pack_end(refresh_metadata_button, False, False, 0)
@@ -4496,14 +4504,18 @@ def main():
         return 1
 
     system_mode = False
+    system_only_mode = False
     # Check for command line argument
     if len(sys.argv) > 1:
         arg = sys.argv[1]
         if arg == '--system-mode':
             system_mode = True
+        if arg == '--system-only-mode':
+            system_mode = True
+            system_only_mode = True
         if arg.endswith('.flatpakref'):
             # Create a temporary window just to handle the installation
-            app = MainWindow(system_mode=system_mode)
+            app = MainWindow(system_mode=system_mode, system_only_mode=system_only_mode)
             app.handle_flatpakref_file(arg)
             # Keep the window open for 5 seconds to show the result
             GLib.timeout_add_seconds(5, Gtk.main_quit)
@@ -4511,13 +4523,34 @@ def main():
             return
         if arg.endswith('.flatpakrepo'):
             # Create a temporary window just to handle the installation
-            app = MainWindow(system_mode=system_mode)
+            app = MainWindow(system_mode=system_mode, system_only_mode=system_only_mode)
             app.handle_flatpakrepo_file(arg)
             # Keep the window open for 5 seconds to show the result
             GLib.timeout_add_seconds(5, Gtk.main_quit)
             Gtk.main()
             return
-    app = MainWindow(system_mode=system_mode)
+
+        if system_mode or system_only_mode:
+            if os.getuid() > 0:
+                script_path = Path(__file__).resolve()
+                os.execvp(
+                    "pkexec",
+                    [
+                        "pkexec",
+                        "--disable-internal-agent",
+                        "env",
+                        f"DISPLAY={os.environ['DISPLAY']}",
+                        f"XAUTHORITY={os.environ.get('XAUTHORITY', '')}",
+                        f"XDG_CURRENT_DESKTOP={os.environ.get('XDG_CURRENT_DESKTOP', '').lower()}",
+                        f"ORIG_USER={os.getuid()!s}",
+                        f"PKEXEC_UID={os.getuid()!s}",
+                        "G_MESSAGES_DEBUG=none",
+                        sys.executable,
+                        str(script_path),
+                        arg,
+                    ]
+                )
+    app = MainWindow(system_mode=system_mode, system_only_mode=system_only_mode)
     app.connect("destroy", Gtk.main_quit)
     app.show_all()
     Gtk.main()
