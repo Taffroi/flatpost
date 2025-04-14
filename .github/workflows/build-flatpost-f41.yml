@@ -65,11 +65,11 @@ jobs:
           cat packaging/rpm/flatpost.spec | grep commit
 
           rpmbuild -ba packaging/rpm/flatpost.spec
-          mv ~/rpmbuild/RPMS/x86_64/flatpost-${{ env.VERSION }}*.rpm \
-             ~/rpmbuild/RPMS/x86_64/flatpost-${{ env.VERSION }}.fc41.rpm
+          mv ~/rpmbuild/RPMS/noarch/flatpost-${{ env.VERSION }}*.rpm \
+             ~/rpmbuild/RPMS/noarch/flatpost-${{ env.VERSION }}.fc41.rpm
 
       - name: Fedora-41
         uses: actions/upload-artifact@v4
         with:
           name: flatpost-${{ env.VERSION }}.fc41.rpm
-          path: ~/rpmbuild/RPMS/x86_64/flatpost-${{ env.VERSION }}.fc41.rpm
+          path: ~/rpmbuild/RPMS/noarch/flatpost-${{ env.VERSION }}.fc41.rpm
