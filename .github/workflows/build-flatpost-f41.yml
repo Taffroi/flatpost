@@ -66,14 +66,18 @@ jobs:
 
           rpmbuild -ba packaging/rpm/flatpost.spec
           mv ~/rpmbuild/RPMS/noarch/flatpost-${{ env.VERSION }}*.rpm \
-             ~/rpmbuild/RPMS/noarch/flatpost-${{ env.VERSION }}.fc41.rpm
-          mv ~/rpmbuild/SRPMS/noarch/flatpost-${{ env.VERSION }}*.rpm \
-             ~/rpmbuild/RPMS/noarch/flatpost-${{ env.VERSION }}.fc41.src.rpm
+             ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc41.rpm
+          mv ~/rpmbuild/SRPMS/flatpost-${{ env.VERSION }}*.src.rpm \
+             ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc41.src.rpm
 
-      - name: Fedora-41
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: flatpost-${{ env.VERSION }}.fc41.rpm
-          path: ~/rpmbuild/RPMS/noarch/flatpost-${{ env.VERSION }}.fc41.rpm
+          path: ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc41.rpm
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
           name: flatpost-${{ env.VERSION }}.fc41.src.rpm
-          path: ~/rpmbuild/RPMS/noarch/flatpost-${{ env.VERSION }}.fc41.src.rpm
+          path: ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc41.src.rpm
