@@ -597,7 +597,7 @@ class MainWindow(Gtk.Window):
         refresh_metadata_button.set_size_request(26, 26)  # 40x40 pixels
         refresh_metadata_button.get_style_context().add_class("app-action-button")
         refresh_metadata_button.set_tooltip_text("Refresh metadata")
-        refresh_metadata_button_icon = Gio.Icon.new_for_string('system-reboot-symbolic')
+        refresh_metadata_button_icon = Gio.Icon.new_for_string('view-refresh-symbolic')
         refresh_metadata_button.set_image(Gtk.Image.new_from_gicon(refresh_metadata_button_icon, Gtk.IconSize.BUTTON))
         refresh_metadata_button.connect("clicked", self.on_refresh_metadata_button_clicked)
 
