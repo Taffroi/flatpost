@@ -573,11 +573,11 @@ class MainWindow(Gtk.Window):
         self.top_bar.pack_start(self.component_type_combo_label, False, False, 0)
         self.top_bar.pack_start(self.component_type_combo, False, False, 0)
 
-        # Add global overrides button
+        # Add about button
         about_button = Gtk.Button()
         about_button.set_size_request(26, 26)  # 40x40 pixels
         about_button.get_style_context().add_class("app-action-button")
-        about_button.set_tooltip_text("Global Setting Overrides")
+        about_button.set_tooltip_text("About")
         about_button_icon = Gio.Icon.new_for_string('help-about-symbolic')
         about_button.set_image(Gtk.Image.new_from_gicon(about_button_icon, Gtk.IconSize.BUTTON))
         about_button.connect("clicked", self.on_about_clicked)
