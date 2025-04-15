@@ -1194,9 +1194,9 @@ class MainWindow(Gtk.Window):
         self.right_panel.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
         # Create scrollable area
-        scrolled_window = Gtk.ScrolledWindow()
-        scrolled_window.set_hexpand(True)
-        scrolled_window.set_vexpand(True)
+        self.category_scrolled_window = Gtk.ScrolledWindow()
+        self.category_scrolled_window.set_hexpand(True)
+        self.category_scrolled_window.set_vexpand(True)
 
         # Create container for applications
         self.right_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -1205,8 +1205,8 @@ class MainWindow(Gtk.Window):
         self.right_container.set_hexpand(True)  # Add this line
         self.right_container.set_vexpand(True)  # Add this line
         self.right_container.get_style_context().add_class("app-window")
-        scrolled_window.add(self.right_container)
-        self.right_panel.pack_start(scrolled_window, True, True, 0)
+        self.category_scrolled_window.add(self.right_container)
+        self.right_panel.pack_start(self.category_scrolled_window, True, True, 0)
         return self.right_panel
 
     def create_subcategory_container(self):
@@ -1519,6 +1519,8 @@ class MainWindow(Gtk.Window):
     def show_category_apps(self, category):
         # Initialize apps list
         apps = []
+        vadjustment = self.category_scrolled_window.get_vadjustment()
+        vadjustment.set_value(vadjustment.get_lower())
 
         # Load system data
         if 'installed' in category:
