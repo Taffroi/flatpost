@@ -796,7 +796,7 @@ class AppstreamSearcher:
         """Process a single category and retrieve its metadata."""
 
         if self._should_refresh():
-            self._refresh_category_data(searcher, category, system)
+            self._refresh_category_data(searcher, category)
 
         app_data_dir = Path.home() / ".local" / "share" / "flatpost"
         app_data_dir.mkdir(parents=True, exist_ok=True)
