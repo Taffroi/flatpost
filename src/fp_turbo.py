@@ -891,7 +891,7 @@ def install_flatpak(app: AppStreamPackage, repo_name=None, system=False) -> tupl
     available_apps = installation.list_remote_refs_sync(repo_name)
     match_found = None
     for available_app in available_apps:
-        if app.id == available_app.get_name():
+        if available_app.get_name() in app.id:
             match_found = 1
             # Add the install operation
             transaction.add_install(repo_name, available_app.format_ref(), None)
@@ -959,8 +959,9 @@ def remove_flatpak(app: AppStreamPackage, system=False) -> tuple[bool, str]:
     transaction = Flatpak.Transaction.new_for_installation(installation)
     match_found = None
     for installed_ref in installed:
-        if app.id in installed_ref.get_name():
+        if installed_ref.get_name() in app.id:
             match_found = 1
+            # Add the install operation
             transaction.add_uninstall(installed_ref.format_ref())
 
     if not match_found:
@@ -990,9 +991,11 @@ def update_flatpak(app: AppStreamPackage, system=False) -> tuple[bool, str]:
     transaction = Flatpak.Transaction.new_for_installation(installation)
     match_found = None
     for update in updates:
-        if app.id == update.get_name():
+        if update.get_name() in app.id:
             match_found = 1
+            # Add the install operation
             transaction.add_update(update.format_ref())
+
 
     if not match_found:
         return False, f"No updateable package named {app.id} found."
@@ -1127,6 +1130,11 @@ def repoadd(repofile, system=False):
 
     if title.casefold() in existing_titles:
         return False, "A repository with this title already exists."
+
+    if title == "flathub":
+        title = "Flatpak Official Flathub"
+    if title == "flathub-beta":
+        title = "Flatpak Official Flathub (Beta)"
 
     # Read the repository file
     try:
