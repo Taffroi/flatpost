@@ -658,7 +658,7 @@ class MainWindow(Gtk.Window):
         # Version label
         name_label = Gtk.Label(label="Flatpost")
         name_label.get_style_context().add_class("permissions-header-label")
-        version_label = Gtk.Label(label="Version 1.0.0")
+        version_label = Gtk.Label(label="Version 1.0.5")
         copyright_label = Gtk.Label(label=f"Copyright © 2025-{datetime.now().year} Thomas Crider")
         program_label = Gtk.Label(label="This program comes with absolutely no warranty.")
 

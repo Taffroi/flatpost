@@ -5,11 +5,14 @@ DESKTOP_DIR := $(DESTDIR)/usr/share/applications
 DATA_DIR := $(DESTDIR)/usr/share/flatpost
 ICON_DIR := $(DESTDIR)/usr/share/icons/hicolor
 LICENSE_DIR := $(DESTDIR)/usr/share/licenses/flatpost
+VERSION := $(shell cat VERSION.txt)
 
-.PHONY: all install clean
+.PHONY: all update-version install clean
 
-all: install
+all: update-version install
 
+update-version:
+	sed -i 's/^Version .*/Version $(VERSION)/' src/flatpost.py
 install:
 	@echo "Installing Python files to $(TARGET_DIR)"
 	mkdir -p $(TARGET_DIR)
