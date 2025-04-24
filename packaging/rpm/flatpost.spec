@@ -56,7 +56,6 @@ installation, removal, updating, and permission management of flatpak packages a
 
 %build
 make all DESTDIR=%{buildroot}
-install -D -m644  %{buildroot}/usr/share/mime/packages/flatpost.xml
 
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/com.flatpost.flatpostapp.desktop
