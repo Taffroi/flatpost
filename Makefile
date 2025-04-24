@@ -2,6 +2,7 @@ PYTHON_SITE_PACKAGES := $(shell python3 -c "import site; print(site.getsitepacka
 TARGET_DIR := $(DESTDIR)$(PYTHON_SITE_PACKAGES)/flatpost
 BIN_DIR := $(DESTDIR)/usr/bin
 DESKTOP_DIR := $(DESTDIR)/usr/share/applications
+MIME_DIR := $(DESTDIR)/usr/share/mime/packages
 DATA_DIR := $(DESTDIR)/usr/share/flatpost
 ICON_DIR := $(DESTDIR)/usr/share/icons/hicolor
 LICENSE_DIR := $(DESTDIR)/usr/share/licenses/flatpost
@@ -25,6 +26,10 @@ install:
 	@echo "Installing desktop file to $(DESKTOP_DIR)"
 	mkdir -p $(DESKTOP_DIR)
 	install -m 644 data/usr/share/applications/com.flatpost.flatpostapp.desktop $(DESKTOP_DIR)/com.flatpost.flatpostapp.desktop
+
+	@echo "Installing MIME file to $(MIME_DIR)"
+	mkdir -p $(MIME_DIR)
+	install -m 644 data/usr/share/mime/packages/flatpost.xml $(MIME_DIR)/flatpost.xml
 
 	@echo "Installing data files to $(DATA_DIR)"
 	mkdir -p $(DATA_DIR)
