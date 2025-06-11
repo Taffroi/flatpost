@@ -2598,7 +2598,7 @@ class MainWindow(Gtk.Window):
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-        btn.connect("clicked", self._on_add_path, app_id, app)
+        btn.connect("clicked", self._on_add_path, app_id, app, perm_type)
         hbox.pack_end(btn, False, True, 0)
 
         listbox.add(row)
@@ -3440,7 +3440,7 @@ class MainWindow(Gtk.Window):
         add_rm_icon = "list-add-symbolic"
         use_icon = Gio.Icon.new_for_string(add_rm_icon)
         btn.set_image(Gtk.Image.new_from_gicon(use_icon, Gtk.IconSize.BUTTON))
-        btn.connect("clicked", self._global_on_add_path)
+        btn.connect("clicked", self._global_on_add_path, perm_type)
         hbox.pack_end(btn, False, True, 0)
 
         listbox.add(row)
