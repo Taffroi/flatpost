@@ -17,6 +17,7 @@ from html.parser import HTMLParser
 import requests
 import os
 import pwd
+import atexit
 from datetime import datetime
 
 class MainWindow(Gtk.Window):
@@ -758,6 +759,7 @@ class MainWindow(Gtk.Window):
             try:
                 # Construct command to re-execute with system mode enabled
                 script_path = Path(__file__).resolve()
+                subprocess.run(["xhost", "si:localuser:root"])
                 os.execvp(
                     "pkexec",
                     [
@@ -4534,6 +4536,7 @@ def main():
 
         if system_mode or system_only_mode:
             if os.getuid() > 0:
+                subprocess.run(["xhost", "si:localuser:root"])
                 script_path = Path(__file__).resolve()
                 os.execvp(
                     "pkexec",
@@ -4556,6 +4559,18 @@ def main():
     app.connect("destroy", Gtk.main_quit)
     app.show_all()
     Gtk.main()
-
+    
+def cleanup_xhost():
+    """Cleanup function to run xhost on exit"""
+    try:
+        subprocess.run(["xhost", "-si:localuser:root"])
+    except Exception as e:
+        logger.error(f"Failed to run xhost cleanup: {e}")
+        
 if __name__ == "__main__":
-    main()
+    try:
+        # Your main application code here
+        main()
+    finally:
+        # This ensures cleanup runs even if main() throws an exception
+        cleanup_xhost()
