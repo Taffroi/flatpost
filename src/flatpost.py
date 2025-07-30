@@ -247,13 +247,20 @@ class MainWindow(Gtk.Window):
                 padding: 6px;
                 margin: 0;
                 font-weight: bold;
-                font-size: 48px
+                font-size: 48px;
             }
             .category-button {
                 border: 0px;
                 padding: 6px;
                 margin: 0;
                 background: none;
+            }
+
+            .category-button:active {
+                border: 0px;
+                padding: 6px;
+                margin: 0;
+                background: @headerbar_bg_color;
             }
 
             .pan-button {
@@ -271,28 +278,30 @@ class MainWindow(Gtk.Window):
             }
 
             .subcategory-group-header {
-                padding: 6px;
-                margin: 0;
+                margin: 2px;
+                background-color: @headerbar_bg_color;
+                border-radius: 4px;
             }
-            .subcategory-group-header active {
-                padding: 6px;
-                margin: 0;
-                font-weight: bold;
-            }
+
             .subcategory-button {
                 border: 0px;
-                padding: 6px;
+                padding: 12px;
                 margin: 0;
                 background: none;
+                transition: all 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995), font-weight 0s;
             }
+
             .subcategory-button.active {
                 font-weight: bold;
+                background-color: @headerbar_backdrop_color;
+                padding: 12px 24px;
+                border-radius: 4px;
             }
 
             .subcategories-scroll {
                 border: none;
                 background-color: transparent;
-                min-height: 40px;
+                min-height: 32px;
             }
 
             .repo-item {
@@ -335,17 +344,18 @@ class MainWindow(Gtk.Window):
 
             .app-repo-label {
                 font-size: 0.8em;
+                color: @search_bg_color
             }
 
             .app-type-label {
                 font-size: 0.8em;
             }
             .updates_available_bar {
-                background-color: #18A3FF;
+                background-color: @accent_bg_color;
                 padding: 4px;
             }
             .screenshot-bullet {
-                color: #18A3FF;
+                color: @accent_bg_color;
                 font-size: 30px;
                 padding: 4px;
                 border-radius: 50%;
@@ -359,6 +369,7 @@ class MainWindow(Gtk.Window):
                 margin: 0px;
                 padding: 20px;
                 background: none;
+                border-radius: 4px;
             }
             .details-textview {
                 background-color: transparent;
@@ -444,19 +455,23 @@ class MainWindow(Gtk.Window):
             }
 
             .app-action-button.accent {
-                background-color: #18a3ff;
+                background-color: @accent_bg_color;
                 padding: 8px 12px;
             }
 
+            .app-action-button.accent label, .app-action-button.accent image {
+                color: @accent_fg_color;
+            }
+
             .app-action-button.accent:hover {
-                background-color: #31adff;
+                background-color: @accent_color;
             }
 
             .app-action-button:hover {
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
             .app-url-label {
-                color: #18A3FF;
+                color: @accent_bg_color;
                 text-decoration: underline;
             }
 
@@ -1887,7 +1902,7 @@ class MainWindow(Gtk.Window):
                 app,
                 self.on_remove_clicked,
                 "list-remove-symbolic",
-                "remove"
+                "Remove"
             )
         else:
             self._add_action_button(
@@ -1896,7 +1911,7 @@ class MainWindow(Gtk.Window):
                 app,
                 self.on_install_clicked,
                 "list-add-symbolic",
-                "install",
+                None,
                 "Install",
                 True
             )
@@ -1908,7 +1923,7 @@ class MainWindow(Gtk.Window):
                 app,
                 self.on_app_options_clicked,
                 "applications-system-symbolic",
-                "options"
+                "Options"
             )
 
         if status['is_updatable']:
@@ -1918,7 +1933,7 @@ class MainWindow(Gtk.Window):
                 app,
                 self.on_update_clicked,
                 'system-software-update-symbolic',
-                "update"
+                "Update"
             )
 
         self._add_action_button(
@@ -1927,7 +1942,7 @@ class MainWindow(Gtk.Window):
             app,
             self.on_details_clicked,
             'help-about-symbolic',
-            "details"
+            "Show details"
         )
 
         if status['has_donation_url']:
@@ -1937,7 +1952,7 @@ class MainWindow(Gtk.Window):
                 app,
                 self.on_donate_clicked,
                 'donate-symbolic',
-                "donate"
+                "Donate"
             )
 
         container.pack_end(buttons_box, False, False, 0)
@@ -1959,6 +1974,8 @@ class MainWindow(Gtk.Window):
             button.set_image(Gtk.Image.new_from_gicon(icon, Gtk.IconSize.BUTTON))
             parent.pack_end(button, False, False, 0)
             button.set_always_show_image(True)
+            if tooltip:
+                button.set_tooltip_text(tooltip)
             if label_name:
                 button.set_label("  "+label_name)
             if accent is True:
