@@ -247,6 +247,7 @@ class MainWindow(Gtk.Window):
                 padding: 6px;
                 margin: 0;
                 font-weight: bold;
+                font-size: 48px
             }
             .category-button {
                 border: 0px;
@@ -306,7 +307,7 @@ class MainWindow(Gtk.Window):
             }
             .repo-list-header {
                 font-size: 18px;
-                padding: 5px;;
+                padding: 5px;
             }
 
             .app-window {
@@ -320,6 +321,7 @@ class MainWindow(Gtk.Window):
                 font-size: 18px;
                 padding-top: 4px;
                 padding-bottom: 4px;
+                font-weight: bold;
             }
             .app-list-summary {
                 padding-top: 2px;
@@ -374,15 +376,14 @@ class MainWindow(Gtk.Window):
                 font-size: 24px;
             }
             .permissions-row {
-                padding: 4px;
-                background: none;
+                padding: 6px;
             }
             .permissions-item-label {
-                font-weight: bold;
                 font-size: 14px;
             }
             .permissions-item-summary {
                 font-size: 12px;
+                color: #8c8c8c;
             }
             .permissions-global-indicator {
                 background: none;
@@ -441,6 +442,16 @@ class MainWindow(Gtk.Window):
                 padding: 8px;
                 transition: all 0.2s ease;
             }
+
+            .app-action-button.accent {
+                background-color: #18a3ff;
+                padding: 8px 12px;
+            }
+
+            .app-action-button.accent:hover {
+                background-color: #31adff;
+            }
+
             .app-action-button:hover {
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
@@ -843,8 +854,10 @@ class MainWindow(Gtk.Window):
         progress_bar = Gtk.ProgressBar()
         progress_bar.set_text("Initializing...")
         progress_bar.set_show_text(True)
-        dialog.vbox.pack_start(progress_bar, True, True, 0)
-        dialog.vbox.set_spacing(12)
+        progress_bar.set_margin_start(32)
+        progress_bar.set_margin_end(32)
+        dialog.vbox.pack_start(progress_bar, True, True, 32) # Padding necessary
+        dialog.vbox.set_valign(Gtk.Align.FILL) # Make it use all window space
 
         # Show the dialog
         dialog.show_all()
@@ -1883,7 +1896,9 @@ class MainWindow(Gtk.Window):
                 app,
                 self.on_install_clicked,
                 "list-add-symbolic",
-                "install"
+                "install",
+                "Install",
+                True
             )
 
         if status['is_installed']:
@@ -1927,7 +1942,7 @@ class MainWindow(Gtk.Window):
 
         container.pack_end(buttons_box, False, False, 0)
 
-    def _add_action_button(self, parent, visible, app, callback, icon_name, tooltip=None):
+    def _add_action_button(self, parent, visible, app, callback, icon_name, tooltip=None, label_name=None, accent=False):
         """Helper method to add a consistent action button."""
         if not visible:
             return
@@ -1943,6 +1958,11 @@ class MainWindow(Gtk.Window):
             icon = Gio.Icon.new_for_string(icon_name)
             button.set_image(Gtk.Image.new_from_gicon(icon, Gtk.IconSize.BUTTON))
             parent.pack_end(button, False, False, 0)
+            button.set_always_show_image(True)
+            if label_name:
+                button.set_label("  "+label_name)
+            if accent is True:
+                button.get_style_context().add_class("accent")
 
     def show_waiting_dialog(self, message="Please wait while task is running..."):
         """Show a modal dialog with a spinner"""
