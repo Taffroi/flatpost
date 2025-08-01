@@ -274,7 +274,7 @@ class MainWindow(Gtk.Window):
 
             .category-button.active {
                 margin-left: 6px;
-                background-color: @sidebar_shade_color;
+                background-color: @headerbar_bg_color;
                 border-radius: 4px;
                 font-weight: bold;
             }
@@ -369,6 +369,11 @@ class MainWindow(Gtk.Window):
             .updates_available_bar {
                 background-color: @accent_bg_color;
                 padding: 4px;
+                border-radius: 4px;
+            }
+
+            .updates_available_bar_label {
+                color: @accent_fg_color;
             }
             .screenshot-bullet {
                 color: @accent_bg_color;
@@ -1021,15 +1026,30 @@ class MainWindow(Gtk.Window):
             header_box.set_hexpand(True)  # Make the box expand horizontally
 
             # Create the label
-            group_header = Gtk.Label(label=group_name.upper())
+            group_header = Gtk.Label(label=group_name.capitalize())
+
+            category_group_icon = "" # May be better as an array ?
+            if "system" in group_name:
+                category_group_icon = 'applications-system-symbolic'
+            elif "collections" in group_name:
+                category_group_icon = 'system-file-manager-symbolic'
+            elif "categories" in group_name:
+                category_group_icon = 'application-x-addon-symbolic'
+            else:
+                category_group_icon = 'user-bookmarks-symbolic'
+
+            group_header_icon = Gtk.Image.new_from_gicon(Gio.Icon.new_for_string(category_group_icon), 2)
+            group_header_icon.set_size_request(-1, 32)
+            group_header_icon.set_valign(Gtk.Align.CENTER)
             group_header.get_style_context().add_class("title-3")
             group_header.set_halign(Gtk.Align.START)
 
             # Add the label to the box
+            header_box.pack_start(group_header_icon, False, False, 6)
             header_box.pack_start(group_header, False, False, 0)
 
             # Add the box to the container
-            container.pack_start(header_box, False, False, 0)
+            container.pack_start(header_box, False, False, 4)
             container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
             # Store widgets for this group
@@ -1158,7 +1178,11 @@ class MainWindow(Gtk.Window):
                         # Escape val for comparison with possible markup in label
                         safe_val = GLib.markup_escape_text(val)
                         if safe_val in label.get_text() or val in label.get_text():
-                            label.set_label(val)
+                            if safe_val == "Updates":
+                                markup_updates = f"{safe_val} ({len(self.updates_results)})"
+                                label.set_markup(markup_updates)
+                            else:
+                                label.set_label(val)
                             label.get_style_context().remove_class("active")
                             break
 
@@ -1166,13 +1190,17 @@ class MainWindow(Gtk.Window):
         display_title = self.category_groups[group][category]
         for widget in self.category_widgets[group]:
             label = widget.get_children()[0]
-            if label.get_text() == display_title:
+            if display_title in label.get_text():
                 safe_title = GLib.markup_escape_text(display_title)
-                markup = f"{safe_title} <span foreground='#18A3FF'><b>❯</b></span>"
-                label.set_markup(markup)
+                markup_selected = f" <span foreground='#18A3FF'><b>❯</b></span>"
+                if "Updates" in display_title:
+                    markup_updates = f" ({len(self.updates_results)})"
+                    label.set_markup(safe_title+markup_updates+markup_selected)
+                else:
+                    label.set_markup(safe_title+markup_selected)
                 label.get_style_context().add_class("active")
                 break
-
+        
         if self.updates_results == []:
             self.updates_available_bar.set_visible(False)
 
@@ -1431,25 +1459,29 @@ class MainWindow(Gtk.Window):
             if self.updates_results != [] :
                 self.updates_available_bar.get_style_context().add_class("updates_available_bar")
                 self.updates_available_bar.set_visible(True)
+                self.updates_available_bar.set_valign(Gtk.Align.CENTER)
 
                 buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-                buttons_box.set_spacing(6)
-                buttons_box.set_margin_top(4)
+                buttons_box.set_spacing(8)
                 buttons_box.set_halign(Gtk.Align.END)
+                buttons_box.set_valign(Gtk.Align.CENTER)
 
                 update_all_button = Gtk.Button()
+                update_all_button.set_label("  "+"Update all")
                 update_all_button.set_size_request(26, 26)  # 40x40 pixels
                 update_all_button.get_style_context().add_class("app-action-button")
                 update_all_icon = Gio.Icon.new_for_string('system-software-update-symbolic')
                 update_all_button.set_image(Gtk.Image.new_from_gicon(update_all_icon, Gtk.IconSize.BUTTON))
                 update_all_button.connect("clicked", self.on_update_all_button_clicked)
+                update_all_button.set_always_show_image(True)
                 buttons_box.pack_end(update_all_button, False, False, 0)
 
                 # Create left label
-                left_label = Gtk.Label(label="Update All: ")
-                left_label.set_halign(Gtk.Align.END)  # Align left
+                left_label = Gtk.Label(label="New updates are available")
+                left_label.set_halign(Gtk.Align.CENTER)
+                left_label.get_style_context().add_class("updates_available_bar_label")
                 self.updates_available_bar.pack_end(buttons_box, False, False, 0)
-                self.updates_available_bar.pack_end(left_label, False, False, 0)
+                self.updates_available_bar.pack_start(left_label, False, False, 8)
 
                 self.updates_available_bar.show_all()
         else:
@@ -1926,9 +1958,22 @@ class MainWindow(Gtk.Window):
         buttons_box.set_margin_top(4)
         buttons_box.set_halign(Gtk.Align.END)
         buttons_box.set_valign(Gtk.Align.CENTER)  # Center vertically
+        update_button = False
 
         # Add install/remove buttons separately
-        if status['is_installed']:
+        if status['is_updatable'] and self.current_page != "installed":
+            self._add_action_button(
+                buttons_box,
+                True,
+                app,
+                self.on_update_clicked,
+                'system-software-update-symbolic',
+                None,
+                "Update"
+            )
+            update_button = True
+        
+        elif status['is_installed']:
             self._add_action_button(
                 buttons_box,
                 True,
@@ -1938,6 +1983,7 @@ class MainWindow(Gtk.Window):
                 None,
                 "Uninstall"
             )
+            
         else:
             self._add_action_button(
                 buttons_box,
@@ -1948,27 +1994,16 @@ class MainWindow(Gtk.Window):
                 None,
                 "Install",
                 True
-            )
+            )      
 
-        if status['is_installed']:
-            self._add_action_button(
+        self._add_action_button(
                 buttons_box,
                 True,
                 app,
                 self.on_app_options_clicked,
                 "applications-system-symbolic",
                 "Options"
-            )
-
-        if status['is_updatable']:
-            self._add_action_button(
-                buttons_box,
-                True,
-                app,
-                self.on_update_clicked,
-                'system-software-update-symbolic',
-                "Update"
-            )
+            )   
 
         self._add_action_button(
             buttons_box,
@@ -1987,6 +2022,16 @@ class MainWindow(Gtk.Window):
                 self.on_donate_clicked,
                 'donate-symbolic',
                 "Donate"
+            )
+
+        if status['is_updatable'] and update_button != True:
+            self._add_action_button(
+                buttons_box,
+                True,
+                app,
+                self.on_update_clicked,
+                'system-software-update-symbolic',
+                "Update"
             )
 
         container.pack_end(buttons_box, False, False, 0)
