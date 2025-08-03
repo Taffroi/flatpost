@@ -215,6 +215,10 @@ class MainWindow(Gtk.Window):
                 'texttools': 'Text Tools'
             }
         }
+        
+        # Initialize mouse cursor test
+        # display = Gdk.Display.get_default()
+        # cursor = Gdk.Cursor.new_from_name(display, "pointer");
 
         # Add CSS provider for custom styling
         css_provider = Gtk.CssProvider()
@@ -223,16 +227,12 @@ class MainWindow(Gtk.Window):
                 font-weight: bold
             }
 
-            .panel-header {
-                font-size: 24px;
-                font-weight: bold;
-                padding: 12px;
-            }
             .top-bar {
                 margin: 0px;
                 padding: 0px;
                 border: 0px;
-                border-bottom: 1px solid @sidebar_border_color;
+                background-color: @sidebar_backdrop_color;
+                border-bottom: 1px solid mix(currentColor,@window_bg_color,0.86);
             }
 
             # revealer and tool_box are hidden components inside GtkSearchBar
@@ -249,11 +249,14 @@ class MainWindow(Gtk.Window):
             }
 
             .category-panel {
+                padding: 0 6px;
+                margin: 12px;
                 border-radius: 4px;
+                background-color: @sidebar_backdrop_color;
+                border: 1px solid mix(currentColor,@window_bg_color,0.86);
             }
 
             .category-group-header {
-                padding: 6px;
                 margin: 0;
                 font-weight: bold;
                 font-size: 48px;
@@ -261,20 +264,16 @@ class MainWindow(Gtk.Window):
             
             .category-button {
                 border: 0px;
-                padding: 12px 14px;
+                padding: 12px 8px;
                 margin: 0;
                 background: none;
-                transition: margin-left 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995);
-            }
-
-            .category-box category-button.active {
-                background-color: @headerbar_backdrop_color;
-                border-radius: 4px;
+                transition: margin-left 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995), padding 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995);
             }
 
             .category-button.active {
-                margin-left: 6px;
-                background-color: @headerbar_bg_color;
+                padding: 12px 14px;
+                margin-left: 4px;
+                background-color: mix(currentColor,@window_bg_color,0.9);
                 border-radius: 4px;
                 font-weight: bold;
             }
@@ -295,7 +294,7 @@ class MainWindow(Gtk.Window):
 
             .subcategory-group-header {
                 margin: 2px;
-                background-color: @headerbar_bg_color;
+                background-color: @sidebar_backdrop_color;
                 border-radius: 4px;
             }
 
@@ -309,7 +308,7 @@ class MainWindow(Gtk.Window):
 
             .subcategory-button.active {
                 font-weight: bold;
-                background-color: @headerbar_backdrop_color;
+                background-color: @window_bg_color;
                 padding: 10px 24px;
                 border-radius: 4px;
             }
@@ -335,10 +334,25 @@ class MainWindow(Gtk.Window):
                 padding: 5px;
             }
 
-            .app-window {
+            .app-panel {
+                margin: 12px;
+            }
+
+            .app-panel-header {
+                font-size: 24px;
+                font-weight: bold;
+                padding: 16px;
+            }
+
+            .app-list {
                 border: 0px;
                 padding-right: 20px;
                 background: none;
+            }
+
+            .app-list-item {
+                padding: 10px 0;
+                border-radius: 4px;
             }
 
             .app-list-header {
@@ -346,7 +360,7 @@ class MainWindow(Gtk.Window):
                 font-weight: bold;
             }
             .app-list-developer, .app-list-misc {
-                font-size: 12px;
+                font-size: 13px;
             }
             .app-list-summary {
                 padding-top: 6px;
@@ -395,6 +409,14 @@ class MainWindow(Gtk.Window):
                 background-color: transparent;
                 border-width: 0;
                 border-radius: 4px;
+            }
+
+            .url {
+                color: @accent_bg_color
+            }
+
+            .url.hover-event {
+                text-decoration-line: underline;
             }
             .permissions-window {
                 border: 0px;
@@ -683,6 +705,19 @@ class MainWindow(Gtk.Window):
         # Add the top bar to the main box
         self.main_box.pack_start(self.top_bar, False, True, 0)
 
+    def enter_hover_event(w, content): # Use this function with "enter-notify-event" signals to handle hover state
+        # if content.get_style_context().has_class("url") == True:
+            # Gdk.Window.set_cursor(content, cursor)
+            # I would like to create a way to change cursor for URLs, but idk how to use GDK without recoding everything
+        content.get_style_context().add_class("hover-event")
+        print("Enter hover")
+
+    def leave_hover_event(w, content): # Use this function with "leave-notify-event" signals to handle hover state
+        # if content.get_style_context().has_class("url") == True:
+            # print("Leave: class detected")
+        content.get_style_context().remove_class("hover-event")
+        print("Leave hover")
+
     def on_about_clicked(self, button):
         """Show the about dialog with version and license information."""
         # Create the dialog
@@ -700,7 +735,7 @@ class MainWindow(Gtk.Window):
         content_area = about_dialog.get_content_area()
 
         # Create main box for content
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         main_box.set_border_width(12)
 
         # Icon
@@ -716,24 +751,25 @@ class MainWindow(Gtk.Window):
         license_label = Gtk.Label(label="License:")
         license_url = Gtk.Label(label="BSD 2-Clause License")
         license_url.set_use_underline(True)
-        license_url.set_use_markup(True)
-        license_url.set_markup('<span color="#18A3FF">BSD 2-Clause License</span>')
+        license_url.get_style_context().add_class("url")
         license_event_box = Gtk.EventBox()
         license_event_box.add(license_url)
         license_event_box.connect("button-release-event",
                         lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatpost/blob/main/LICENSE"))
+        license_event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(license_url));
+        license_event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(license_url));
 
         issue_label = Gtk.Label(label="Report an Issue:")
         issue_url = Gtk.Label(label="https://github.com/GloriousEggroll/flatpost/issue")
         issue_url.set_use_underline(True)
         issue_url.set_use_markup(True)
-        issue_url.set_markup('<span color="#18A3FF">https://github.com/GloriousEggroll/flatpost/issue</span>')
+        issue_url.get_style_context().add_class("url")
         issue_event_box = Gtk.EventBox()
         issue_event_box.add(issue_url)
         issue_event_box.connect("button-release-event",
                         lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatpost/issues"))
-
-
+        issue_event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(issue_url)); # These connect signals handles hover
+        issue_event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(issue_url));
 
         # Add all widgets
         content_area.add(main_box)
@@ -992,7 +1028,6 @@ class MainWindow(Gtk.Window):
         # Create container for categories
         panel_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         panel_container.set_spacing(6)
-        panel_container.set_border_width(6)
         panel_container.set_size_request(300, -1)  # Set fixed width
         panel_container.set_hexpand(False)
         panel_container.set_vexpand(True)
@@ -1018,6 +1053,7 @@ class MainWindow(Gtk.Window):
         # Dictionary to store category widgets
         self.category_widgets = {}
 
+        first_category_group = False
         # Add group headers and categories
         for group_name, categories in groups.items():
             # Create a box for the header
@@ -1045,12 +1081,16 @@ class MainWindow(Gtk.Window):
             group_header.set_halign(Gtk.Align.START)
 
             # Add the label to the box
-            header_box.pack_start(group_header_icon, False, False, 6)
+            header_box.pack_start(group_header_icon, False, False, 7)
             header_box.pack_start(group_header, False, False, 0)
 
             # Add the box to the container
+            
+            if first_category_group == False:
+                first_category_group = True
+            else:
+                container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 8)
             container.pack_start(header_box, False, False, 4)
-            container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
             # Store widgets for this group
             self.category_widgets[group_name] = []
@@ -1192,7 +1232,7 @@ class MainWindow(Gtk.Window):
             label = widget.get_children()[0]
             if display_title in label.get_text():
                 safe_title = GLib.markup_escape_text(display_title)
-                markup_selected = f" <span foreground='#18A3FF'><b>❯</b></span>"
+                markup_selected = f" <span foreground='#3584e4'><b>❯</b></span>"
                 if "Updates" in display_title:
                     markup_updates = f" ({len(self.updates_results)})"
                     label.set_markup(safe_title+markup_updates+markup_selected)
@@ -1245,10 +1285,11 @@ class MainWindow(Gtk.Window):
         self.right_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.right_panel.set_hexpand(True)  # Add this line
         self.right_panel.set_vexpand(True)  # Add this line
+        self.right_panel.get_style_context().add_class("app-panel")
 
         # Add category header
         self.category_header = Gtk.Label(label="")
-        self.category_header.get_style_context().add_class("panel-header")
+        self.category_header.get_style_context().add_class("app-panel-header")
         self.category_header.set_hexpand(True)
         self.category_header.set_halign(Gtk.Align.START)
         self.right_panel.pack_start(self.category_header, False, False, 0)
@@ -1283,7 +1324,7 @@ class MainWindow(Gtk.Window):
         self.right_container.set_border_width(6)
         self.right_container.set_hexpand(True)  # Add this line
         self.right_container.set_vexpand(True)  # Add this line
-        self.right_container.get_style_context().add_class("app-window")
+        self.right_container.get_style_context().add_class("app-list")
         self.category_scrolled_window.add(self.right_container)
         self.right_panel.pack_start(self.category_scrolled_window, True, True, 0)
         return self.right_panel
@@ -1845,8 +1886,9 @@ class MainWindow(Gtk.Window):
         self._setup_icon(container, details)
         self._setup_text_layout(container, details, app_data['repos'])
         self._setup_buttons(container, status, app)
+        container.get_style_context().add_class('app-list-item')
 
-        self.right_container.pack_start(container, False, False, 10)
+        self.right_container.pack_start(container, False, False, 0)
         self.right_container.pack_start(Gtk.Separator(), False, False, 0)
         self.right_container.show_all()
 
@@ -4342,16 +4384,19 @@ class MainWindow(Gtk.Window):
         url_label = Gtk.Label(label=url)
         url_label.set_use_underline(True)
         url_label.set_use_markup(True)
-        url_label.set_markup(f'<span color="#18A3FF">{url}</span>')
+        url_label.set_markup(f'{url}')
         url_label.set_halign(Gtk.Align.START)
+        url_label.get_style_context().add_class("url")
 
         event_box = Gtk.EventBox()
         event_box.add(url_label)
         event_box.connect("button-release-event",
                         lambda w, e: Gio.AppInfo.launch_default_for_uri(url))
+        event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(url_label)); # These connect signals handles hover
+        event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(url_label));
 
         box.pack_start(label_widget, False, True, 0)
-        box.pack_start(event_box, True, True, 0)
+        box.pack_start(event_box, False, True, 0)
         return box
 
     def on_details_clicked(self, button, app):
