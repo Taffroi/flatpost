@@ -411,8 +411,36 @@ class MainWindow(Gtk.Window):
                 border-radius: 4px;
             }
 
+            .url-list {
+                background-color: @card_bg_color;
+                border-radius: 4px;
+                border: 1px solid mix(currentColor,@window_bg_color,0.86);
+            }
+
+            .url-list-item {
+                padding: 10px 18px;
+                transition: all 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995), background-color 0.2s ease-out;
+            }
+
+            .url-list-item image {
+                color: mix(currentColor,@window_bg_color,0.3);
+            }
+
+            .url-list-item.hover-event {
+                background-color: @sidebar_backdrop_color;
+            }
+
+            .url-list-item-title {
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            .url-list-item-url {
+                font-size: 13px;
+            }
+
             .url {
-                color: @accent_bg_color
+                color: @accent_bg_color;
             }
 
             .url.hover-event {
@@ -710,13 +738,11 @@ class MainWindow(Gtk.Window):
             # Gdk.Window.set_cursor(content, cursor)
             # I would like to create a way to change cursor for URLs, but idk how to use GDK without recoding everything
         content.get_style_context().add_class("hover-event")
-        print("Enter hover")
 
     def leave_hover_event(w, content): # Use this function with "leave-notify-event" signals to handle hover state
         # if content.get_style_context().has_class("url") == True:
             # print("Leave: class detected")
         content.get_style_context().remove_class("hover-event")
-        print("Leave hover")
 
     def on_about_clicked(self, button):
         """Show the about dialog with version and license information."""
@@ -4376,27 +4402,57 @@ class MainWindow(Gtk.Window):
 
     def _create_url_section(self, url_type, url):
         """Create a URL section with clickable link."""
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        content_box.get_style_context().add_class("url-list-item")
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
-        label_widget = Gtk.Label(label=f"{url_type.capitalize()}:")
-        label_widget.set_xalign(0)
+        url_type_icon_name = "" # May be better as an array ?
+        if "donation" in url_type:
+            url_type_icon_name = 'donate-symbolic'
+        elif "homepage" in url_type:
+            url_type_icon_name = 'go-home-symbolic'
+        elif "bugtracker" in url_type:
+            url_type_icon_name = 'dialog-warning-symbolic'
+        elif "flathub" in url_type:
+            url_type_icon_name = 'help-about-symbolic'
+        else:
+            url_type_icon_name = 'user-bookmarks-symbolic'
+
+        url_type_icon = Gtk.Image.new_from_gicon(Gio.Icon.new_for_string(url_type_icon_name), 3)
+        url_type_icon.set_size_request(-1, 28)
+        url_type_icon.set_valign(Gtk.Align.CENTER)
+        
+        title_label = Gtk.Label(label=f"{url_type.capitalize()}", xalign=0)
+        title_label.get_style_context().add_class("url-list-item-title")
 
         url_label = Gtk.Label(label=url)
         url_label.set_use_underline(True)
         url_label.set_use_markup(True)
         url_label.set_markup(f'{url}')
         url_label.set_halign(Gtk.Align.START)
-        url_label.get_style_context().add_class("url")
+        url_label.get_style_context().add_class("url-list-item-url")
+        url_label.get_style_context().add_class("dim-label")
+
+        url_open_icon = Gtk.Image.new_from_gicon(Gio.Icon.new_for_string("send-to-symbolic"), 2)
+        url_open_icon.set_size_request(-1, 24)
+        url_open_icon.set_valign(Gtk.Align.CENTER)
 
         event_box = Gtk.EventBox()
-        event_box.add(url_label)
         event_box.connect("button-release-event",
                         lambda w, e: Gio.AppInfo.launch_default_for_uri(url))
-        event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(url_label)); # These connect signals handles hover
-        event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(url_label));
+        event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(content_box)); # These connect signals handles hover
+        event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(content_box));
 
-        box.pack_start(label_widget, False, True, 0)
-        box.pack_start(event_box, False, True, 0)
+        if url:
+            content_box.pack_start(url_type_icon, False, True, 0)
+            text_box.pack_start(title_label, False, True, 0)
+            text_box.pack_start(url_label, False, True, 0)
+            content_box.pack_start(text_box, False, True, 8)
+            content_box.pack_end(url_open_icon, False, True, 0)
+            event_box.add(content_box)
+            box.pack_start(event_box, True, True, 0)
+            
         return box
 
     def on_details_clicked(self, button, app):
@@ -4427,7 +4483,7 @@ class MainWindow(Gtk.Window):
                             False, False, 0)
 
         # Add URLs section
-        urls_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        urls_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         title_label = Gtk.Label(label=f"Links")
         title_label.get_style_context().add_class("title-3")
@@ -4436,12 +4492,14 @@ class MainWindow(Gtk.Window):
         for url_type, url in details['urls'].items():
             row = self._create_url_section(url_type, url)
             urls_section.pack_start(row, False, True, 0)
+            urls_section.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
+                            False, False, 0)
+        urls_section.remove(Gtk.Separator())
         urls_section.pack_start(self._create_url_section("Flathub Page",
             f"https://flathub.org/apps/details/{details['id']}"), False, True, 0)
+        urls_section.get_style_context().add_class("url-list")
         content_box.pack_start(title_label, False, True, 0)
         content_box.pack_start(urls_section, False, True, 0)
-        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
-                            False, False, 0)
 
         # Connect destroy signal and show window
         self.details_window.connect("destroy", lambda w: w.destroy())
