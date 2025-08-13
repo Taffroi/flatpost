@@ -215,19 +215,29 @@ class MainWindow(Gtk.Window):
                 'texttools': 'Text Tools'
             }
         }
+        
+        # Initialize mouse cursor test
+        # display = Gdk.Display.get_default()
+        # cursor = Gdk.Cursor.new_from_name(display, "pointer");
 
         # Add CSS provider for custom styling
         css_provider = Gtk.CssProvider()
         css_provider.load_from_data("""
-            .panel-header {
-                font-size: 24px;
-                font-weight: bold;
-                padding: 12px;
+            .large-title {
+                font-weight: 800
             }
+
             .top-bar {
                 margin: 0px;
                 padding: 0px;
                 border: 0px;
+                background-color: @sidebar_backdrop_color;
+                border-bottom: 1px solid mix(currentColor,@window_bg_color,0.86);
+            }
+
+            button.titlebutton {
+                min-height: 24px;
+                min-width: 24px;
             }
 
             # revealer and tool_box are hidden components inside GtkSearchBar
@@ -243,16 +253,34 @@ class MainWindow(Gtk.Window):
                 margin: 0px;
             }
 
+            .category-panel {
+                padding: 0 6px;
+                margin: 12px;
+                border-radius: 4px;
+                background-color: @sidebar_backdrop_color;
+                border: 1px solid mix(currentColor,@window_bg_color,0.86);
+            }
+
             .category-group-header {
-                padding: 6px;
                 margin: 0;
                 font-weight: bold;
+                font-size: 48px;
             }
+            
             .category-button {
                 border: 0px;
-                padding: 6px;
+                padding: 12px 8px;
                 margin: 0;
                 background: none;
+                transition: margin-left 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995), padding 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995);
+            }
+
+            .category-button.active {
+                padding: 12px 14px;
+                margin-left: 4px;
+                background-color: mix(currentColor,@window_bg_color,0.9);
+                border-radius: 4px;
+                font-weight: bold;
             }
 
             .pan-button {
@@ -270,28 +298,30 @@ class MainWindow(Gtk.Window):
             }
 
             .subcategory-group-header {
-                padding: 6px;
-                margin: 0;
+                margin: 2px;
+                background-color: @sidebar_backdrop_color;
+                border-radius: 4px;
             }
-            .subcategory-group-header active {
-                padding: 6px;
-                margin: 0;
-                font-weight: bold;
-            }
+
             .subcategory-button {
                 border: 0px;
-                padding: 6px;
+                padding: 10px;
                 margin: 0;
                 background: none;
+                transition: all 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995), font-weight 0s;
             }
+
             .subcategory-button.active {
                 font-weight: bold;
+                background-color: @window_bg_color;
+                padding: 10px 24px;
+                border-radius: 4px;
             }
 
             .subcategories-scroll {
                 border: none;
                 background-color: transparent;
-                min-height: 40px;
+                min-height: 32px;
             }
 
             .repo-item {
@@ -306,23 +336,47 @@ class MainWindow(Gtk.Window):
             }
             .repo-list-header {
                 font-size: 18px;
-                padding: 5px;;
+                padding: 5px;
             }
 
-            .app-window {
+            .app-panel {
+                margin: 12px;
+            }
+
+            .app-panel-header {
+                font-size: 24px;
+                font-weight: bold;
+                padding: 16px;
+            }
+
+            .app-list {
                 border: 0px;
-                margin: 0px;
-                padding-right: 20px;
                 background: none;
+            }
+
+            .app-list-item {
+                padding: 24px 32px;
+                margin: 4px 0;
+                border-radius: 16px;
+                background-color: @new_title_bg_color;
+                border: 1px solid mix(currentColor,@window_bg_color,0.9);
+                transition: background-color 0.2s ease-out;
+            }
+
+            .app-list-item.hover-event {
+                background-color: mix(@new_title_bg_color,@sidebar_backdrop_color,0.85);
+                box-shadow: 2px 2px 6px rgba(0,0,0,0.05);
             }
 
             .app-list-header {
                 font-size: 18px;
-                padding-top: 4px;
-                padding-bottom: 4px;
+                font-weight: bold;
+            }
+            .app-list-developer, .app-list-misc {
+                font-size: 13px;
             }
             .app-list-summary {
-                padding-top: 2px;
+                padding-top: 6px;
                 padding-bottom: 2px;
             }
             .app-page-header {
@@ -333,17 +387,23 @@ class MainWindow(Gtk.Window):
 
             .app-repo-label {
                 font-size: 0.8em;
+                color: @search_bg_color
             }
 
             .app-type-label {
                 font-size: 0.8em;
             }
             .updates_available_bar {
-                background-color: #18A3FF;
+                background-color: @accent_bg_color;
                 padding: 4px;
+                border-radius: 4px;
+            }
+
+            .updates_available_bar_label {
+                color: @accent_fg_color;
             }
             .screenshot-bullet {
-                color: #18A3FF;
+                color: @accent_bg_color;
                 font-size: 30px;
                 padding: 4px;
                 border-radius: 50%;
@@ -355,13 +415,50 @@ class MainWindow(Gtk.Window):
             .details-window {
                 border: 0px;
                 margin: 0px;
-                padding: 20px;
+                padding: 16px 32px;
                 background: none;
             }
-            .details-textview {
-                background-color: transparent;
+
+            .details-textview text {
+                background-color: @window_bg_color;
                 border-width: 0;
-                border-radius: 0;
+                border-radius: 4px;
+            }
+
+            .url-list {
+                background-color: @card_bg_color;
+                border-radius: 4px;
+                border: 1px solid mix(currentColor,@window_bg_color,0.86);
+            }
+
+            .url-list-item {
+                padding: 10px 16px;
+                transition: all 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995), background-color 0.2s ease-out;
+            }
+
+            .url-list-item image {
+                color: mix(currentColor,@window_bg_color,0.3);
+            }
+
+            .url-list-item.hover-event {
+                background-color: @sidebar_backdrop_color;
+            }
+
+            .url-list-item-title {
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            .url-list-item-url {
+                font-size: 13px;
+            }
+
+            .url {
+                color: @accent_bg_color;
+            }
+
+            .url.hover-event {
+                text-decoration-line: underline;
             }
             .permissions-window {
                 border: 0px;
@@ -374,15 +471,14 @@ class MainWindow(Gtk.Window):
                 font-size: 24px;
             }
             .permissions-row {
-                padding: 4px;
-                background: none;
+                padding: 6px;
             }
             .permissions-item-label {
-                font-weight: bold;
                 font-size: 14px;
             }
             .permissions-item-summary {
                 font-size: 12px;
+                color: #8c8c8c;
             }
             .permissions-global-indicator {
                 background: none;
@@ -441,11 +537,16 @@ class MainWindow(Gtk.Window):
                 padding: 8px;
                 transition: all 0.2s ease;
             }
+
+            .app-action-button.icon_label {
+                padding: 8px 14px;
+            }
+
             .app-action-button:hover {
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
             .app-url-label {
-                color: #18A3FF;
+                color: @accent_bg_color;
                 text-decoration: underline;
             }
 
@@ -604,6 +705,7 @@ class MainWindow(Gtk.Window):
 
         parent_system_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         parent_system_box.set_vexpand(True)
+        parent_system_box.set_valign(Gtk.Align.CENTER)
         # Create system mode switch box
         system_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         system_box.set_hexpand(False)
@@ -633,6 +735,17 @@ class MainWindow(Gtk.Window):
         # Add the top bar to the main box
         self.main_box.pack_start(self.top_bar, False, True, 0)
 
+    def enter_hover_event(w, content): # Use this function with "enter-notify-event" signals to handle hover state
+        # if content.get_style_context().has_class("url") == True:
+            # Gdk.Window.set_cursor(content, cursor)
+            # I would like to create a way to change cursor for URLs, but idk how to use GDK without recoding everything
+        content.get_style_context().add_class("hover-event")
+
+    def leave_hover_event(w, content): # Use this function with "leave-notify-event" signals to handle hover state
+        # if content.get_style_context().has_class("url") == True:
+            # print("Leave: class detected")
+        content.get_style_context().remove_class("hover-event")
+
     def on_about_clicked(self, button):
         """Show the about dialog with version and license information."""
         # Create the dialog
@@ -650,7 +763,7 @@ class MainWindow(Gtk.Window):
         content_area = about_dialog.get_content_area()
 
         # Create main box for content
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         main_box.set_border_width(12)
 
         # Icon
@@ -666,24 +779,25 @@ class MainWindow(Gtk.Window):
         license_label = Gtk.Label(label="License:")
         license_url = Gtk.Label(label="BSD 2-Clause License")
         license_url.set_use_underline(True)
-        license_url.set_use_markup(True)
-        license_url.set_markup('<span color="#18A3FF">BSD 2-Clause License</span>')
+        license_url.get_style_context().add_class("url")
         license_event_box = Gtk.EventBox()
         license_event_box.add(license_url)
         license_event_box.connect("button-release-event",
                         lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatpost/blob/main/LICENSE"))
+        license_event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(license_url));
+        license_event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(license_url));
 
         issue_label = Gtk.Label(label="Report an Issue:")
         issue_url = Gtk.Label(label="https://github.com/GloriousEggroll/flatpost/issue")
         issue_url.set_use_underline(True)
         issue_url.set_use_markup(True)
-        issue_url.set_markup('<span color="#18A3FF">https://github.com/GloriousEggroll/flatpost/issue</span>')
+        issue_url.get_style_context().add_class("url")
         issue_event_box = Gtk.EventBox()
         issue_event_box.add(issue_url)
         issue_event_box.connect("button-release-event",
                         lambda w, e: Gio.AppInfo.launch_default_for_uri("https://github.com/GloriousEggroll/flatpost/issues"))
-
-
+        issue_event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(issue_url)); # These connect signals handles hover
+        issue_event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(issue_url));
 
         # Add all widgets
         content_area.add(main_box)
@@ -843,8 +957,10 @@ class MainWindow(Gtk.Window):
         progress_bar = Gtk.ProgressBar()
         progress_bar.set_text("Initializing...")
         progress_bar.set_show_text(True)
-        dialog.vbox.pack_start(progress_bar, True, True, 0)
-        dialog.vbox.set_spacing(12)
+        progress_bar.set_margin_start(32)
+        progress_bar.set_margin_end(32)
+        dialog.vbox.pack_start(progress_bar, True, True, 32) # Padding necessary
+        dialog.vbox.set_valign(Gtk.Align.FILL) # Make it use all window space
 
         # Show the dialog
         dialog.show_all()
@@ -940,12 +1056,12 @@ class MainWindow(Gtk.Window):
         # Create container for categories
         panel_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         panel_container.set_spacing(6)
-        panel_container.set_border_width(6)
         panel_container.set_size_request(300, -1)  # Set fixed width
         panel_container.set_hexpand(False)
         panel_container.set_vexpand(True)
         panel_container.set_halign(Gtk.Align.FILL)  # Fill horizontally
         panel_container.set_valign(Gtk.Align.FILL)  # Align to top
+        panel_container.get_style_context().add_class("category-panel")
 
         # Create scrollable area
         scrolled_window = Gtk.ScrolledWindow()
@@ -955,7 +1071,7 @@ class MainWindow(Gtk.Window):
 
         # Create container for categories
         container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        container.set_spacing(6)
+        container.set_spacing(2)
         container.set_border_width(6)
         container.set_halign(Gtk.Align.FILL)  # Fill horizontally
         container.set_valign(Gtk.Align.START)  # Align to top
@@ -965,6 +1081,7 @@ class MainWindow(Gtk.Window):
         # Dictionary to store category widgets
         self.category_widgets = {}
 
+        first_category_group = False
         # Add group headers and categories
         for group_name, categories in groups.items():
             # Create a box for the header
@@ -973,16 +1090,35 @@ class MainWindow(Gtk.Window):
             header_box.set_hexpand(True)  # Make the box expand horizontally
 
             # Create the label
-            group_header = Gtk.Label(label=group_name.upper())
-            group_header.get_style_context().add_class("title-2")
+            group_header = Gtk.Label(label=group_name.capitalize())
+
+            category_group_icon = "" # May be better as an array ?
+            if "system" in group_name:
+                category_group_icon = 'applications-system-symbolic'
+            elif "collections" in group_name:
+                category_group_icon = 'system-file-manager-symbolic'
+            elif "categories" in group_name:
+                category_group_icon = 'application-x-addon-symbolic'
+            else:
+                category_group_icon = 'user-bookmarks-symbolic'
+
+            group_header_icon = Gtk.Image.new_from_gicon(Gio.Icon.new_for_string(category_group_icon), 2)
+            group_header_icon.set_size_request(-1, 32)
+            group_header_icon.set_valign(Gtk.Align.CENTER)
+            group_header.get_style_context().add_class("title-3")
             group_header.set_halign(Gtk.Align.START)
 
             # Add the label to the box
+            header_box.pack_start(group_header_icon, False, False, 7)
             header_box.pack_start(group_header, False, False, 0)
 
             # Add the box to the container
-            container.pack_start(header_box, False, False, 0)
-            container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+            
+            if first_category_group == False:
+                first_category_group = True
+            else:
+                container.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 8)
+            container.pack_start(header_box, False, False, 4)
 
             # Store widgets for this group
             self.category_widgets[group_name] = []
@@ -993,8 +1129,7 @@ class MainWindow(Gtk.Window):
                 category_box = Gtk.EventBox()
                 category_box.set_hexpand(True)
                 category_box.set_halign(Gtk.Align.FILL)
-                category_box.set_margin_top(2)
-                category_box.set_margin_bottom(2)
+                category_box.get_style_context().add_class("category-box")
 
                 # Create label for the category
                 category_label = Gtk.Label(label=display_title)
@@ -1041,9 +1176,9 @@ class MainWindow(Gtk.Window):
         for app in self.all_apps:
             details = app.get_details()
             searchable_items.append({
-                'text': f"{details['name']} {details['description']} {details['categories']}".lower(),
                 'app': app,
                 'id': details['id'].lower(),
+                'text': f"{details['name']} {details['description']} {details['categories']}".lower(),
                 'name': details['name'].lower()
             })
 
@@ -1111,19 +1246,29 @@ class MainWindow(Gtk.Window):
                         # Escape val for comparison with possible markup in label
                         safe_val = GLib.markup_escape_text(val)
                         if safe_val in label.get_text() or val in label.get_text():
-                            label.set_label(val)
+                            if safe_val == "Updates":
+                                markup_updates = f"{safe_val} ({len(self.updates_results)})"
+                                label.set_markup(markup_updates)
+                            else:
+                                label.set_label(val)
+                            label.get_style_context().remove_class("active")
                             break
 
         # Add active state and markup icon
         display_title = self.category_groups[group][category]
         for widget in self.category_widgets[group]:
             label = widget.get_children()[0]
-            if label.get_text() == display_title:
+            if display_title in label.get_text():
                 safe_title = GLib.markup_escape_text(display_title)
-                markup = f"{safe_title} <span foreground='#18A3FF'><b>❯</b></span>"
-                label.set_markup(markup)
+                markup_selected = f" <span foreground='#3584e4'><b>❯</b></span>"
+                if "Updates" in display_title:
+                    markup_updates = f" ({len(self.updates_results)})"
+                    label.set_markup(safe_title+markup_updates+markup_selected)
+                else:
+                    label.set_markup(safe_title+markup_selected)
+                label.get_style_context().add_class("active")
                 break
-
+        
         if self.updates_results == []:
             self.updates_available_bar.set_visible(False)
 
@@ -1141,6 +1286,13 @@ class MainWindow(Gtk.Window):
         """Refresh the currently displayed page"""
         if self.current_page and self.current_group:
             self.on_category_clicked(self.current_page, self.current_group)
+        try:
+            if self.details_window:
+                # box_outer = self.details_window.get_children(self.details_window.get_child())
+                # print(box_outer)
+                self.details_window.destroy() # Temporary solution for action buttons not updating on details window
+        except:
+            print("Details_window not opened")
 
     def update_category_header(self, category):
         """Update the category header text based on the selected category."""
@@ -1168,10 +1320,11 @@ class MainWindow(Gtk.Window):
         self.right_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.right_panel.set_hexpand(True)  # Add this line
         self.right_panel.set_vexpand(True)  # Add this line
+        self.right_panel.get_style_context().add_class("app-panel")
 
         # Add category header
         self.category_header = Gtk.Label(label="")
-        self.category_header.get_style_context().add_class("panel-header")
+        self.category_header.get_style_context().add_class("app-panel-header")
         self.category_header.set_hexpand(True)
         self.category_header.set_halign(Gtk.Align.START)
         self.right_panel.pack_start(self.category_header, False, False, 0)
@@ -1193,7 +1346,7 @@ class MainWindow(Gtk.Window):
         self.updates_available_bar.set_visible(False)
         self.updates_available_bar.set_halign(Gtk.Align.FILL)  # Ensure full width
         self.right_panel.pack_start(self.updates_available_bar, False, False, 0)
-        self.right_panel.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+        # self.right_panel.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
         # Create scrollable area
         self.category_scrolled_window = Gtk.ScrolledWindow()
@@ -1206,7 +1359,7 @@ class MainWindow(Gtk.Window):
         self.right_container.set_border_width(6)
         self.right_container.set_hexpand(True)  # Add this line
         self.right_container.set_vexpand(True)  # Add this line
-        self.right_container.get_style_context().add_class("app-window")
+        self.right_container.get_style_context().add_class("app-list")
         self.category_scrolled_window.add(self.right_container)
         self.right_panel.pack_start(self.category_scrolled_window, True, True, 0)
         return self.right_panel
@@ -1382,25 +1535,29 @@ class MainWindow(Gtk.Window):
             if self.updates_results != [] :
                 self.updates_available_bar.get_style_context().add_class("updates_available_bar")
                 self.updates_available_bar.set_visible(True)
+                self.updates_available_bar.set_valign(Gtk.Align.CENTER)
 
                 buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-                buttons_box.set_spacing(6)
-                buttons_box.set_margin_top(4)
+                buttons_box.set_spacing(8)
                 buttons_box.set_halign(Gtk.Align.END)
+                buttons_box.set_valign(Gtk.Align.CENTER)
 
                 update_all_button = Gtk.Button()
+                update_all_button.set_label("  "+"Update all")
                 update_all_button.set_size_request(26, 26)  # 40x40 pixels
                 update_all_button.get_style_context().add_class("app-action-button")
                 update_all_icon = Gio.Icon.new_for_string('system-software-update-symbolic')
                 update_all_button.set_image(Gtk.Image.new_from_gicon(update_all_icon, Gtk.IconSize.BUTTON))
                 update_all_button.connect("clicked", self.on_update_all_button_clicked)
+                update_all_button.set_always_show_image(True)
                 buttons_box.pack_end(update_all_button, False, False, 0)
 
                 # Create left label
-                left_label = Gtk.Label(label="Update All: ")
-                left_label.set_halign(Gtk.Align.END)  # Align left
+                left_label = Gtk.Label(label="New updates are available")
+                left_label.set_halign(Gtk.Align.CENTER)
+                left_label.get_style_context().add_class("updates_available_bar_label")
                 self.updates_available_bar.pack_end(buttons_box, False, False, 0)
-                self.updates_available_bar.pack_end(left_label, False, False, 0)
+                self.updates_available_bar.pack_start(left_label, False, False, 8)
 
                 self.updates_available_bar.show_all()
         else:
@@ -1711,18 +1868,18 @@ class MainWindow(Gtk.Window):
 
         self.display_apps(apps)
 
-    def create_scaled_icon(self, icon, is_themed=False):
+    def create_scaled_icon(self, icon, size=64, is_themed=False):
         if is_themed:
             # For themed icons, create a pixbuf directly using the icon theme
             icon_theme = Gtk.IconTheme.get_default()
-            pb = icon_theme.load_icon(icon.get_names()[0], 64, Gtk.IconLookupFlags.FORCE_SIZE)
+            pb = icon_theme.load_icon(icon.get_names()[0], size, Gtk.IconLookupFlags.FORCE_SIZE)
         else:
             # For file-based icons
             pb = GdkPixbuf.Pixbuf.new_from_file(icon)
 
         # Scale to 64x64 using high-quality interpolation
         scaled_pb = pb.scale_simple(
-            64, 64,  # New dimensions
+            size, size,  # New dimensions
             GdkPixbuf.InterpType.BILINEAR  # High-quality scaling
         )
 
@@ -1761,13 +1918,29 @@ class MainWindow(Gtk.Window):
 
         status = self._get_app_status(app)
         container = self._create_app_container()
-        self._setup_icon(container, details)
-        self._setup_text_layout(container, details, app_data['repos'])
-        self._setup_buttons(container, status, app)
+        content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self._setup_icon(content_box, details)
+        self._setup_text_layout(content_box, details, app_data['repos'])
+        self._setup_buttons(content_box, status, app)
+        content_box.get_style_context().add_class('app-list-item')
+
+        event_box = Gtk.EventBox()
+        event_box.connect("button-release-event",
+                        lambda w, e: self.click_event(app, content_box))
+        event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(content_box)); # These connect signals handles hover
+        event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(content_box));
+
+        event_box.add(content_box)
+        container.add(event_box)
 
         self.right_container.pack_start(container, False, False, 0)
-        self.right_container.pack_start(Gtk.Separator(), False, False, 0)
+        # self.right_container.pack_start(Gtk.Separator(), False, False, 0)
         self.right_container.show_all()
+
+    def click_event(self, app=None, content=None):
+        if content.get_style_context().has_class("hover-event") == True:
+            if content.get_style_context().has_class("app-list-item") == True:
+                self.on_details_clicked(Gtk.Button, app)
 
     def _get_app_status(self, app):
         """Determine installation and update status of an application."""
@@ -1781,9 +1954,6 @@ class MainWindow(Gtk.Window):
     def _create_app_container(self):
         """Create the horizontal container for an application row."""
         container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        container.set_spacing(12)
-        container.set_margin_top(6)
-        container.set_margin_bottom(6)
         return container
 
     def _setup_icon(self, container, details):
@@ -1802,7 +1972,7 @@ class MainWindow(Gtk.Window):
                 icon_widget = self.create_scaled_icon(str(icon_path), is_themed=False)
 
         icon_widget.set_size_request(64, 64)
-        icon_box.pack_start(icon_widget, True, True, 0)
+        icon_box.pack_start(icon_widget, False, True, 0)
         container.pack_start(icon_box, False, False, 0)
 
     def _setup_text_layout(self, container, details, repos):
@@ -1815,27 +1985,50 @@ class MainWindow(Gtk.Window):
         title_label = Gtk.Label(label=details['name'])
         title_label.get_style_context().add_class("app-list-header")
         title_label.set_halign(Gtk.Align.START)
-        title_label.set_yalign(0.5)
         title_label.set_hexpand(True)
         right_box.pack_start(title_label, False, False, 0)
 
-        # Kind label
+        #Developer
+        developer_label = Gtk.Label(label=f"{details['developer']}")
+        developer_label.set_halign(Gtk.Align.START)
+        developer_label.set_hexpand(True)
+        developer_label.set_line_wrap(True)
+        developer_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
+        developer_label.get_style_context().add_class("dim-label")
+        developer_label.get_style_context().add_class("app-list-developer")
+        right_box.pack_start(developer_label, False, False, 0)
+
+        # Description
+        desc_label = Gtk.Label(label=details['summary'])
+        desc_label.set_halign(Gtk.Align.START)
+        desc_label.set_yalign(1)
+        desc_label.set_hexpand(True)
+        desc_label.set_line_wrap(True)
+        desc_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
+        desc_label.get_style_context().add_class("app-list-summary")
+        right_box.pack_start(desc_label, False, False, 0)
+
+        # Kind label (disabled)
         kind_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         kind_box.set_spacing(4)
         kind_box.set_halign(Gtk.Align.START)
         kind_box.set_valign(Gtk.Align.START)
+        kind_box.get_style_context().add_class("dim-label")
+        kind_box.get_style_context().add_class("app-list-misc")
 
         kind_label = Gtk.Label(label=f"Type: {details['kind']}")
-        kind_box.pack_end(kind_label, False, False, 0)
-        right_box.pack_start(kind_box, False, False, 0)
+        # kind_box.pack_end(kind_label, False, False, 0)
+        # right_box.pack_start(kind_box, False, False, 0)
 
-        # Repositories
+        # Kind & Repositories Label (in one line)
         repo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         repo_box.set_spacing(4)
         repo_box.set_halign(Gtk.Align.START)
         repo_box.set_valign(Gtk.Align.START)
+        repo_box.get_style_context().add_class("dim-label")
+        repo_box.get_style_context().add_class("app-list-misc")
 
-        repo_list_label = Gtk.Label(label="Sources: ")
+        repo_list_label = Gtk.Label(label=f"Type: {details['kind']} • Sources:")
         repo_box.pack_start(repo_list_label, False, False, 0)
 
         for repo in sorted(repos):
@@ -1845,37 +2038,40 @@ class MainWindow(Gtk.Window):
 
         right_box.pack_start(repo_box, False, False, 0)
 
-        # Description
-        desc_label = Gtk.Label(label=details['summary'])
-        desc_label.set_halign(Gtk.Align.START)
-        desc_label.set_yalign(0.5)
-        desc_label.set_hexpand(True)
-        desc_label.set_line_wrap(True)
-        desc_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
-        desc_label.get_style_context().add_class("dim-label")
-        desc_label.get_style_context().add_class("app-list-summary")
-        right_box.pack_start(desc_label, False, False, 0)
-
         container.pack_start(right_box, True, True, 0)
 
-    def _setup_buttons(self, container, status, app):
+    def _setup_buttons(self, container, status, app, panel=None):
         """Set up action buttons for the application."""
         buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        buttons_box.set_spacing(6)
-        buttons_box.set_margin_top(4)
+        buttons_box.set_spacing(8)
         buttons_box.set_halign(Gtk.Align.END)
         buttons_box.set_valign(Gtk.Align.CENTER)  # Center vertically
+        update_button = False
 
         # Add install/remove buttons separately
-        if status['is_installed']:
+        if status['is_updatable'] and self.current_page != "installed":
+            self._add_action_button(
+                buttons_box,
+                True,
+                app,
+                self.on_update_clicked,
+                'system-software-update-symbolic',
+                None,
+                "Update"
+            )
+            update_button = True
+        
+        elif status['is_installed']:
             self._add_action_button(
                 buttons_box,
                 True,
                 app,
                 self.on_remove_clicked,
                 "list-remove-symbolic",
-                "remove"
+                None,
+                "Uninstall"
             )
+            
         else:
             self._add_action_button(
                 buttons_box,
@@ -1883,8 +2079,10 @@ class MainWindow(Gtk.Window):
                 app,
                 self.on_install_clicked,
                 "list-add-symbolic",
-                "install"
-            )
+                None,
+                "Install",
+                True
+            )     
 
         if status['is_installed']:
             self._add_action_button(
@@ -1893,41 +2091,53 @@ class MainWindow(Gtk.Window):
                 app,
                 self.on_app_options_clicked,
                 "applications-system-symbolic",
-                "options"
-            )
+                "Options"
+            )   
+        
+        # if panel != "info":
+        #     self._add_action_button(
+        #         buttons_box,
+        #         True,
+        #         app,
+        #         self.on_details_clicked,
+        #         'help-about-symbolic',
+        #         "Show details"
+        #     )
 
-        if status['is_updatable']:
+        if status['has_donation_url']:
+            if panel == "info":
+                self._add_action_button(
+                    buttons_box,
+                    True,
+                    app,
+                    self.on_donate_clicked,
+                    'donate-symbolic',
+                    None,
+                    "Donate"
+                )
+            else:
+                self._add_action_button(
+                    buttons_box,
+                    True,
+                    app,
+                    self.on_donate_clicked,
+                    'donate-symbolic',
+                    "Donate"
+                )
+    
+        if status['is_updatable'] and update_button != True:
             self._add_action_button(
                 buttons_box,
                 True,
                 app,
                 self.on_update_clicked,
                 'system-software-update-symbolic',
-                "update"
-            )
-
-        self._add_action_button(
-            buttons_box,
-            True,
-            app,
-            self.on_details_clicked,
-            'help-about-symbolic',
-            "details"
-        )
-
-        if status['has_donation_url']:
-            self._add_action_button(
-                buttons_box,
-                True,
-                app,
-                self.on_donate_clicked,
-                'donate-symbolic',
-                "donate"
+                "Update"
             )
 
         container.pack_end(buttons_box, False, False, 0)
 
-    def _add_action_button(self, parent, visible, app, callback, icon_name, tooltip=None):
+    def _add_action_button(self, parent, visible, app, callback, icon_name, tooltip=None, label_name=None, accent=False):
         """Helper method to add a consistent action button."""
         if not visible:
             return
@@ -1943,6 +2153,14 @@ class MainWindow(Gtk.Window):
             icon = Gio.Icon.new_for_string(icon_name)
             button.set_image(Gtk.Image.new_from_gicon(icon, Gtk.IconSize.BUTTON))
             parent.pack_end(button, False, False, 0)
+            button.set_always_show_image(True)
+            if tooltip:
+                button.set_tooltip_text(tooltip)
+            if label_name:
+                button.set_label("  "+label_name)
+                button.get_style_context().add_class("icon_label")
+            if accent is True:
+                button.get_style_context().add_class("suggested-action")
 
     def show_waiting_dialog(self, message="Please wait while task is running..."):
         """Show a modal dialog with a spinner"""
@@ -4095,47 +4313,74 @@ class MainWindow(Gtk.Window):
         icon_widget.set_size_request(64, 64)
         icon_box.pack_start(icon_widget, True, True, 0)
 
-        content_box.pack_start(icon_row, False, True, 0)
+        content_box.pack_start(icon_box, False, True, 0)
         content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
-    def _create_info_section(self, content_box, details):
+    def _create_info_section(self, content_box, details, app):
         """Create the information section with name, version, and developer."""
-        info_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        info_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=28)
+        status = self._get_app_status(app)
+
+        # Create the icon section of the details window.
+        icon_box = Gtk.Box()
+        icon_box.set_size_request(-1, 128)
+
+        app_icon = Gio.Icon.new_for_string('package-x-generic-symbolic')
+        icon_widget = self.create_scaled_icon(app_icon, 128, is_themed=True)
+
+        if details['icon_filename'] and Path(details['icon_path_128'] + "/" + details['icon_filename']).exists():
+            icon_widget = self.create_scaled_icon(
+                f"{details['icon_path_128']}/{details['icon_filename']}",
+                128,
+                is_themed=False
+            )
+
+        icon_widget.set_size_request(128, 128)
+        icon_box.pack_start(icon_widget, False, True, 0)
 
         # Middle column
-        middle_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        middle_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER)
         name_label = Gtk.Label(label=f"{details['name']}")
-        name_label.get_style_context().add_class("large-title")
+        name_label.get_style_context().add_class("title-1")
         name_label.set_xalign(0)
         version_label = Gtk.Label(label=f"Version {details['version']}")
         version_label.set_xalign(0)
-        developer_label = Gtk.Label(label=f"Developer: {details['developer']}")
+        developer_label = Gtk.Label(label=f"{details['developer']}")
         developer_label.set_xalign(0)
+        developer_label.get_style_context().add_class("dim-label")
 
         middle_column.pack_start(name_label, False, True, 0)
-        middle_column.pack_start(version_label, False, True, 0)
         middle_column.pack_start(developer_label, False, True, 0)
+        middle_column.pack_start(version_label, False, True, 0)
 
         # Right column
-        right_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        right_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER)
+        right_column.set_valign(Gtk.Align.CENTER)
         id_label = Gtk.Label(label=f"ID: {details['id']}")
-        id_label.set_xalign(0)
+        id_label.set_xalign(1)
+        id_label.get_style_context().add_class("dim-label")
         kind_label = Gtk.Label(label=f"Kind: {details['kind']}")
-        kind_label.set_xalign(0)
-        right_column.pack_start(id_label, False, True, 0)
-        right_column.pack_start(kind_label, False, True, 0)
+        kind_label.set_xalign(1)
+        kind_label.get_style_context().add_class("dim-label")
+        # right_column.pack_start(id_label, False, True, 0)
+        # right_column.pack_start(kind_label, False, True, 0)
 
+        container = right_column
+        self._setup_buttons(container, status, app, "info")
+
+        info_box.pack_start(icon_box, False, True, 0)
         info_box.pack_start(middle_column, True, True, 0)
         info_box.pack_start(right_column, False, True, 0)
 
-        content_box.pack_start(info_box, False, True, 0)
+        content_box.pack_start(info_box, False, True, 16)
         content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
     def _create_text_section(self, title, text):
         """Create a text section with title and content."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
 
-        title_label = Gtk.Label(label=f"{title}:")
+        title_label = Gtk.Label(label=f"{title}")
+        title_label.get_style_context().add_class("title-3")
         title_label.set_xalign(0)
 
         text_view = Gtk.TextView()
@@ -4146,48 +4391,44 @@ class MainWindow(Gtk.Window):
 
         # Parse HTML and insert into TextView
         buffer = text_view.get_buffer()
-        if title == "Description":
-            try:
+        # if title == "Description":
+        try:
 
-                class TextExtractor(HTMLParser):
-                    def __init__(self):
-                        super().__init__()
-                        self.text = []
+            class TextExtractor(HTMLParser):
+                def __init__(self):
+                    super().__init__()
+                    self.text = []
 
-                    def handle_data(self, data):
-                        self.text.append(data)
+                def handle_data(self, data):
+                    self.text.append(data)
 
-                    def handle_starttag(self, tag, attrs):
-                        if tag == 'p':
-                            self.text.append('\n')
-                        elif tag == 'ul':
-                            self.text.append('\n')
-                        elif tag == 'li':
-                            self.text.append('• ')
+                def handle_starttag(self, tag, attrs):
+                    if tag == 'li':
+                        self.text.append('• ')
 
-                    def handle_endtag(self, tag):
-                        if tag == 'li':
-                            self.text.append('\n')
-                        elif tag == 'ul':
-                            self.text.append('\n')
+                def handle_endtag(self, tag):
+                    if tag == 'p':
+                        self.text.append('\n')
+                    elif tag == 'li':
+                        self.text.append('\n')
 
-                # Parse the HTML
-                parser = TextExtractor()
-                parser.feed(text)
-                parsed_text = ''.join(parser.text)
+            # Parse the HTML
+            parser = TextExtractor()
+            parser.text.append('\n') # For some reasons, description doesn't appear when there's only one line of paragraph, so I added this as a temporary fix.
+            print(text)
+            parser.feed(text)
+            parsed_text = ''.join(parser.text) # Use [:-1] to remove last line if it's /n
+            print(TextExtractor())
 
-                # Add basic HTML styling
-                buffer.set_text(parsed_text)
-                text_view.set_left_margin(10)
-                text_view.set_right_margin(10)
-                text_view.set_pixels_above_lines(4)
-                text_view.set_pixels_below_lines(4)
+            # Add basic HTML styling
+            buffer.set_text(parsed_text)
+            print(parsed_text)
+            text_view.set_pixels_below_lines(3)
 
-            except Exception:
-                # Fallback to plain text if HTML parsing fails
-                buffer.set_text(text)
-        else:
+        except Exception as e:
+            # Fallback to plain text if HTML parsing fails
             buffer.set_text(text)
+            # buffer.set_text(e)
 
         box.pack_start(title_label, False, True, 0)
         box.pack_start(text_view, True, True, 0)
@@ -4195,24 +4436,56 @@ class MainWindow(Gtk.Window):
 
     def _create_url_section(self, url_type, url):
         """Create a URL section with clickable link."""
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        content_box.get_style_context().add_class("url-list-item")
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
-        label_widget = Gtk.Label(label=f"{url_type.capitalize()}:")
-        label_widget.set_xalign(0)
+        url_type_icon_name = "" # May be better as an array ?
+        if "donation" in url_type:
+            url_type_icon_name = 'donate-symbolic'
+        elif "homepage" in url_type:
+            url_type_icon_name = 'go-home-symbolic'
+        elif "bugtracker" in url_type:
+            url_type_icon_name = 'dialog-warning-symbolic'
+        elif "Flathub Page" in url_type:
+            url_type_icon_name = 'help-about-symbolic'
+        else:
+            url_type_icon_name = 'user-bookmarks-symbolic'
+
+        url_type_icon = Gtk.Image.new_from_gicon(Gio.Icon.new_for_string(url_type_icon_name), 3)
+        url_type_icon.set_size_request(-1, 28)
+        url_type_icon.set_valign(Gtk.Align.CENTER)
+        
+        title_label = Gtk.Label(label=f"{url_type.capitalize()}", xalign=0)
+        title_label.get_style_context().add_class("url-list-item-title")
 
         url_label = Gtk.Label(label=url)
         url_label.set_use_underline(True)
         url_label.set_use_markup(True)
-        url_label.set_markup(f'<span color="#18A3FF">{url}</span>')
+        url_label.set_markup(f'{url}')
         url_label.set_halign(Gtk.Align.START)
+        url_label.get_style_context().add_class("url-list-item-url")
+        url_label.get_style_context().add_class("dim-label")
+
+        url_open_icon = Gtk.Image.new_from_gicon(Gio.Icon.new_for_string("send-to-symbolic"), 2)
+        url_open_icon.set_size_request(-1, 24)
+        url_open_icon.set_valign(Gtk.Align.CENTER)
 
         event_box = Gtk.EventBox()
-        event_box.add(url_label)
         event_box.connect("button-release-event",
                         lambda w, e: Gio.AppInfo.launch_default_for_uri(url))
+        event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(content_box)); # These connect signals handles hover
+        event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(content_box));
 
-        box.pack_start(label_widget, False, True, 0)
-        box.pack_start(event_box, True, True, 0)
+        if url:
+            content_box.pack_start(url_type_icon, False, True, 0)
+            text_box.pack_start(title_label, False, True, 0)
+            text_box.pack_start(url_label, False, True, 0)
+            content_box.pack_start(text_box, False, True, 8)
+            content_box.pack_end(url_open_icon, False, True, 0)
+            event_box.add(content_box)
+            box.pack_start(event_box, True, True, 0)
         return box
 
     def on_details_clicked(self, button, app):
@@ -4226,10 +4499,10 @@ class MainWindow(Gtk.Window):
         content_box = self._create_content_area(box_outer)
 
         # Add icon section
-        self._create_icon_section(content_box, details)
+        # self._create_icon_section(content_box, details)
 
         # Add info section
-        self._create_info_section(content_box, details)
+        self._create_info_section(content_box, details, app)
 
         # Add screenshots
         screenshot_slideshow = self.create_screenshot_slideshow(details['screenshots'], details['id'])
@@ -4237,27 +4510,31 @@ class MainWindow(Gtk.Window):
         content_box.pack_start(screenshot_slideshow, False, True, 0)
 
         # Add summary section
-        summary_section = self._create_text_section("Summary", details['summary'])
+        summary_section = self._create_text_section(details['summary'], details['description'])
         content_box.pack_start(summary_section, False, True, 0)
-        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
-                            False, False, 0)
+        # content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
         # Add URLs section
-        urls_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        urls_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        title_label = Gtk.Label(label=f"Links")
+        title_label.get_style_context().add_class("title-3")
+        title_label.set_xalign(0)
 
         for url_type, url in details['urls'].items():
             row = self._create_url_section(url_type, url)
-            urls_section.pack_start(row, False, True, 0)
+            if url == "":
+                pass
+            else:
+                urls_section.pack_start(row, False, True, 0)
+                urls_section.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
+                                False, False, 0)
+        urls_section.remove(Gtk.Separator())
         urls_section.pack_start(self._create_url_section("Flathub Page",
             f"https://flathub.org/apps/details/{details['id']}"), False, True, 0)
+        urls_section.get_style_context().add_class("url-list")
+        # content_box.pack_start(title_label, False, True, 4)
         content_box.pack_start(urls_section, False, True, 0)
-        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
-                            False, False, 0)
-
-        # Add description section
-        description_section = self._create_text_section("Description",
-            details['description'])
-        content_box.pack_start(description_section, False, True, 0)
 
         # Connect destroy signal and show window
         self.details_window.connect("destroy", lambda w: w.destroy())
