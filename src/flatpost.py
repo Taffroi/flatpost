@@ -20,6 +20,9 @@ import pwd
 import atexit
 from datetime import datetime
 
+settings.set_property("gtk-theme-name", "adw-gtk3-dark")  # Replace with the exact theme name if different
+settings.set_property("gtk-application-prefer-dark-theme", True)
+
 class MainWindow(Gtk.Window):
     def __init__(self, system_mode=False, system_only_mode=False):
         app_title = "Flatpost (user mode)"
