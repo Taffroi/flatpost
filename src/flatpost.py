@@ -20,6 +20,7 @@ import pwd
 import atexit
 from datetime import datetime
 
+settings = Gtk.Settings.get_default()
 settings.set_property("gtk-theme-name", "adw-gtk3-dark")  # Replace with the exact theme name if different
 settings.set_property("gtk-application-prefer-dark-theme", True)
 
