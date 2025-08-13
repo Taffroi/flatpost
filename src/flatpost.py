@@ -4832,6 +4832,7 @@ def main():
                         arg,
                     ]
                 )
+    GLib.set_prgname('/usr/bin/flatpost')
     app = MainWindow(system_mode=system_mode, system_only_mode=system_only_mode)
     app.connect("destroy", Gtk.main_quit)
     app.show_all()
