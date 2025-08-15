@@ -268,7 +268,6 @@ class MainWindow(Gtk.Window):
             .category-group-header {
                 margin: 0;
                 font-weight: bold;
-                font-size: 48px;
             }
             
             .category-button {
@@ -348,9 +347,7 @@ class MainWindow(Gtk.Window):
             }
 
             .app-panel-header {
-                font-size: 24px;
-                font-weight: bold;
-                padding: 16px;
+                padding: 16px 8px;
             }
 
             .app-list {
@@ -397,6 +394,11 @@ class MainWindow(Gtk.Window):
             .app-type-label {
                 font-size: 0.8em;
             }
+
+            .app-panel-nothing {
+                transition: opacity 2s ease;
+            }
+
             .updates_available_bar {
                 background-color: @accent_bg_color;
                 padding: 4px;
@@ -1328,6 +1330,7 @@ class MainWindow(Gtk.Window):
 
         # Add category header
         self.category_header = Gtk.Label(label="")
+        self.category_header.get_style_context().add_class("title-1")
         self.category_header.get_style_context().add_class("app-panel-header")
         self.category_header.set_hexpand(True)
         self.category_header.set_halign(Gtk.Align.START)
@@ -1896,6 +1899,40 @@ class MainWindow(Gtk.Window):
         apps_by_id = self._group_apps_by_id(apps)
         for app_id, app_data in apps_by_id.items():
             self._create_and_add_app_row(app_data)
+        if apps_by_id == {}:
+            self._create_nothing_to_show()
+
+    def _create_nothing_to_show(self):
+        """Create and add a row for a single application."""
+
+        container = self._create_app_container()
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER, hexpand=True, vexpand=True)
+
+        nothing_icon = Gtk.Image.new_from_gicon(Gio.Icon.new_for_string("preferences-desktop-screensaver-symbolic"), 6)
+        nothing_icon.set_pixel_size(128)
+
+        nothing_title = Gtk.Label(label="It's empty here...", halign=Gtk.Align.CENTER)
+        nothing_title.get_style_context().add_class('title-2')     
+
+        nothing_label = Gtk.Label(label="We couldn't find any applications corresponding to your demand.")
+        nothing_label.set_halign(Gtk.Align.CENTER)
+        nothing_label.get_style_context().add_class('dim-label')
+
+        content_box.pack_start(nothing_icon, False, False, 16)
+        content_box.pack_start(nothing_title, False, False, 0)
+        content_box.pack_start(nothing_label, False, False, 0)
+        content_box.set_opacity(0.5)
+        content_box.set_margin_bottom(64)
+        content_box.get_style_context().add_class('app-panel-nothing')
+
+        event_box = Gtk.EventBox()
+
+        event_box.add(content_box)
+        container.add(event_box)
+
+        self.right_container.pack_start(container, False, False, 0)
+        # self.right_container.pack_start(Gtk.Separator(), False, False, 0)
+        self.right_container.show_all()
 
     def _clear_container(self):
         """Clear all children from the right container."""
