@@ -4279,7 +4279,7 @@ class MainWindow(Gtk.Window):
         nav_previous_icon.get_style_context().add_class("details-gallery-arrow")
 
         nav_previous_event_box = Gtk.EventBox()
-         nav_previous_event_box.set_size_request(96,-1) # Arrow size (48px + padding 16px) + The margin you want (here 32px)
+        nav_previous_event_box.set_size_request(96,-1) # Arrow size (48px + padding 16px) + The margin you want (here 32px)
         nav_previous_event_box.connect('button-release-event',
                             lambda w, e: self._switch_screenshot(
                                 current_image, screenshots, dots, self.index_current, app_id, nav_previous_icon, nav_next_icon, "previous"))
