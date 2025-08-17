@@ -408,21 +408,57 @@ class MainWindow(Gtk.Window):
             .updates_available_bar_label {
                 color: @accent_fg_color;
             }
-            .screenshot-bullet {
-                color: @accent_bg_color;
-                font-size: 30px;
-                padding: 4px;
-                border-radius: 50%;
-                transition: all 0.2s ease;
-            }
-            .screenshot-bullet:hover {
-                background-color: rgba(24, 163, 255, 0.2);
-            }
+
             .details-window {
                 border: 0px;
                 margin: 0px;
-                padding: 16px 32px;
                 background: none;
+            }
+
+            .details-content {
+                margin: 0px 32px;
+            }
+
+            .details-gallery {
+                background-color: @shade_color;
+                padding: 16px 0px;
+            }
+
+            details-gallery-screenshot {
+                border-radius: 4px;
+            }
+
+            .details-gallery-arrow {
+                transition: all 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995);
+                padding: 16px;
+                border-radius: 50%;
+            }
+
+            .details-gallery-arrow.hover-event {
+                background-color: mix(@window_bg_color,currentColor,0.1);
+                color: @accent_bg_color;
+            }
+
+            .details-gallery-bullet {
+                color: @accent_fg_color;
+                font-size: 6px;
+                padding: 6px;
+                min-width: 13px;
+                min-height: 12.5px;
+                border-radius: 50%;
+                transition: all 0.2s cubic-bezier(0.040, 0.455, 0.215, 0.995);
+                opacity: 0.3;
+            }
+
+            .details-gallery-bullet.hover-event {
+                background-color: mix(@window_bg_color,currentColor,0.1);
+                opacity: 1;
+            }
+
+            .details-gallery-bullet.active {
+                color: @accent_bg_color;
+                opacity: 1;
+                font-size: 9px;
             }
 
             .details-textview text {
@@ -741,15 +777,31 @@ class MainWindow(Gtk.Window):
         # Add the top bar to the main box
         self.main_box.pack_start(self.top_bar, False, True, 0)
 
-    def enter_hover_event(w, content): # Use this function with "enter-notify-event" signals to handle hover state
+    def enter_hover_event(self, content, position=None, dots=None): # Use this function with "enter-notify-event" signals to handle hover state
+        if content.get_style_context().has_class("details-gallery-arrow") == True and content.get_style_context().has_class("dim-label") == True:
+            return
+        elif content.get_style_context().has_class("details-gallery-bullet") == True:
+            for i, dot in enumerate(dots):
+            # Get the bullet label from the event box
+                bullet_selected = dot.get_children()[0]
+                if i == position:
+                    bullet_selected.get_style_context().add_class("hover-event")
+                    return
         # if content.get_style_context().has_class("url") == True:
             # Gdk.Window.set_cursor(content, cursor)
             # I would like to create a way to change cursor for URLs, but idk how to use GDK without recoding everything
         content.get_style_context().add_class("hover-event")
 
-    def leave_hover_event(w, content): # Use this function with "leave-notify-event" signals to handle hover state
+    def leave_hover_event(self, content, position=None, dots=None): # Use this function with "leave-notify-event" signals to handle hover state
         # if content.get_style_context().has_class("url") == True:
             # print("Leave: class detected")
+        if content.get_style_context().has_class("details-gallery-bullet") == True:
+            for i, dot in enumerate(dots):
+            # Get the bullet label from the event box
+                bullet_selected = dot.get_children()[0]
+                if i == position:
+                    bullet_selected.get_style_context().remove_class("hover-event")
+                    return
         content.get_style_context().remove_class("hover-event")
 
     def on_about_clicked(self, button):
@@ -778,7 +830,7 @@ class MainWindow(Gtk.Window):
         # Version label
         name_label = Gtk.Label(label="Flatpost")
         name_label.get_style_context().add_class("permissions-header-label")
-        version_label = Gtk.Label(label="Version 1.0.5")
+        version_label = Gtk.Label(label="Version 1.0.8")
         copyright_label = Gtk.Label(label=f"Copyright © 2025-{datetime.now().year} Thomas Crider")
         program_label = Gtk.Label(label="This program comes with absolutely no warranty.")
 
@@ -1252,7 +1304,7 @@ class MainWindow(Gtk.Window):
                         # Escape val for comparison with possible markup in label
                         safe_val = GLib.markup_escape_text(val)
                         if safe_val in label.get_text() or val in label.get_text():
-                            if safe_val == "Updates":
+                            if safe_val == "Updates" and len(self.updates_results) != 0:
                                 markup_updates = f"{safe_val} ({len(self.updates_results)})"
                                 label.set_markup(markup_updates)
                             else:
@@ -1267,7 +1319,7 @@ class MainWindow(Gtk.Window):
             if display_title in label.get_text():
                 safe_title = GLib.markup_escape_text(display_title)
                 markup_selected = f" <span foreground='#3584e4'><b>❯</b></span>"
-                if "Updates" in display_title:
+                if "Updates" in display_title and len(self.updates_results) != 0:
                     markup_updates = f" ({len(self.updates_results)})"
                     label.set_markup(safe_title+markup_updates+markup_selected)
                 else:
@@ -2132,7 +2184,7 @@ class MainWindow(Gtk.Window):
                 app,
                 self.on_app_options_clicked,
                 "applications-system-symbolic",
-                "Options"
+                "Manage permissions"
             )   
         
         # if panel != "info":
@@ -4214,51 +4266,94 @@ class MainWindow(Gtk.Window):
 
     def create_screenshot_slideshow(self, screenshots, app_id):
         # Create main container for slideshow
-        slideshow_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        slideshow_box.set_border_width(0)
+        slideshow_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        slideshow_box.get_style_context().add_class("details-gallery")
+        slideshow_content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, halign=Gtk.Align.FILL, spacing=32, border_width=0)
+
+        self.index_current = 0 # First screenshot is active
+        self.screenshot_loop = True # Option to loop the screenshots instead of having limits on the first and last screenshot.
+
+        nav_previous_icon = Gtk.Image.new_from_gicon(Gio.Icon.new_for_string("go-previous-symbolic"), 3)
+        nav_previous_icon.set_halign(Gtk.Align.END)
+        nav_previous_icon.set_valign(Gtk.Align.CENTER)
+        nav_previous_icon.get_style_context().add_class("details-gallery-arrow")
+
+        nav_previous_event_box = Gtk.EventBox()
+         nav_previous_event_box.set_size_request(96,-1) # Arrow size (48px + padding 16px) + The margin you want (here 32px)
+        nav_previous_event_box.connect('button-release-event',
+                            lambda w, e: self._switch_screenshot(
+                                current_image, screenshots, dots, self.index_current, app_id, nav_previous_icon, nav_next_icon, "previous"))
+        nav_previous_event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(nav_previous_icon));
+        nav_previous_event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(nav_previous_icon));
+
+        nav_previous_event_box.add(nav_previous_icon)
+        slideshow_content.pack_start(nav_previous_event_box, False, False, 0)
 
         # Create main frame for the current screenshot (removed border)
-        main_frame = Gtk.Frame()
-        main_frame.set_size_request(400, 300)  # Adjust size as needed
+        main_frame = Gtk.Frame(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
         main_frame.set_shadow_type(Gtk.ShadowType.NONE)
-        slideshow_box.pack_start(main_frame, True, True, 0)
+        main_frame.set_size_request(-1,300) # Minimum size (for when images don't load proprely)
+        slideshow_content.pack_start(main_frame, False, False, 0)
+
+        nav_next_icon = Gtk.Image.new_from_gicon(Gio.Icon.new_for_string("go-next-symbolic"), 3)
+        nav_next_icon.set_halign(Gtk.Align.START)
+        nav_next_icon.set_valign(Gtk.Align.CENTER)
+        nav_next_icon.get_style_context().add_class("details-gallery-arrow")
+
+        nav_next_event_box = Gtk.EventBox()
+        nav_next_event_box.set_size_request(96,-1)
+        nav_next_event_box.connect('button-release-event',
+                            lambda w, e: self._switch_screenshot(
+                                current_image, screenshots, dots, self.index_current, app_id, nav_previous_icon, nav_next_icon, "next"))
+        nav_next_event_box.connect("enter-notify-event", lambda w, e: self.enter_hover_event(nav_next_icon));
+        nav_next_event_box.connect("leave-notify-event", lambda w, e: self.leave_hover_event(nav_next_icon));
+
+        nav_next_event_box.add(nav_next_icon)
+        slideshow_content.pack_end(nav_next_event_box, False, False, 0)
+
+        slideshow_box.pack_start(slideshow_content, False, False, 0)
 
         # Create image for current screenshot
-        current_image = Gtk.Image()
-        current_image.set_size_request(400, 300)  # Adjust size as needed
+        current_image = Gtk.Image(hexpand=True, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        current_image.get_style_context().add_class("details-gallery-screenshot")
         main_frame.add(current_image)
-
-        # Create box for navigation dots
-        nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        nav_box.set_halign(Gtk.Align.CENTER)
-        nav_box.set_border_width(0)  # Remove border
-        slideshow_box.pack_start(nav_box, False, True, 0)
 
         # Create navigation dots
         dots = []
-        for i in range(len(screenshots)):
-            # Create new EventBox for each dot
-            event_box = Gtk.EventBox()
-            event_box.set_border_width(0)
+        if len(screenshots) > 1:
+            # Create box for navigation dots
+            nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, halign=Gtk.Align.CENTER)
+            nav_box.set_border_width(0)  # Remove border
+            slideshow_box.pack_start(nav_box, False, True, 0)
+            for i in range(len(screenshots)):
+                # Create new EventBox for each dot
+                event_box = Gtk.EventBox(valign=Gtk.Align.CENTER)
+                event_box.set_border_width(0)
+    
+                # Create bullet using Label
+                bullet = Gtk.Label(label="⬤", justify=Gtk.Justification.CENTER, yalign=0.58)
+                bullet.get_style_context().add_class("details-gallery-bullet")
+                if i == self.index_current:
+                    bullet.get_style_context().add_class("active")  # First dot is active
+    
+                # Add bullet to event box
+                event_box.add(bullet)
+    
+                # Connect navigation
+                event_box.connect('button-release-event',
+                                lambda w, e, idx=i: self._switch_screenshot(
+                                    current_image, screenshots, dots, idx, app_id, nav_previous_icon, nav_next_icon))
+                event_box.connect("enter-notify-event", lambda w, e, idx=i: self.enter_hover_event(bullet, idx, dots));
+                event_box.connect("leave-notify-event", lambda w, e, idx=i: self.leave_hover_event(bullet, idx, dots));
+    
+                # Add event box to nav box
+                nav_box.pack_start(event_box, False, True, 0)
+    
+                # Store the event box
+                dots.append(event_box)
 
-            # Create bullet using Label
-            bullet = Gtk.Label(label="•")
-            bullet.get_style_context().add_class("screenshot-bullet")
-            bullet.set_opacity(0.3 if i > 0 else 1.0)  # First dot is active
-
-            # Add bullet to event box
-            event_box.add(bullet)
-
-            # Connect navigation
-            event_box.connect('button-release-event',
-                            lambda w, e, idx=i: self._switch_screenshot(
-                                current_image, screenshots, dots, idx, app_id))
-
-            # Add event box to nav box
-            nav_box.pack_start(event_box, False, True, 0)
-
-            # Store the event box
-            dots.append(event_box)
+        # Updates navigation (arrow & dots)
+        self._screenshot_navigation_update(screenshots, nav_previous_icon, nav_next_icon, dots)
 
         # Load first screenshot
         self._load_screenshot(current_image, screenshots[0], app_id)
@@ -4276,46 +4371,81 @@ class MainWindow(Gtk.Window):
         local_path = f"{home_dir}/.local/share/flatpost/app-screenshots/{app_id}/{os.path.basename(url)}"
 
         if os.path.exists(local_path):
-            image.set_from_file(local_path)
+            pb = GdkPixbuf.Pixbuf.new_from_file_at_size(local_path, -1, 336) # Resizes the screenshot height while preserving aspect ratio
+            image.set_from_pixbuf(pb)
         else:
             if fp_turbo.check_internet():
                 try:
                     if not self.download_screenshot(url, local_path):
                         print("Failed to download screenshot")
                         return
-                    image.set_from_file(local_path)
+                    pb = GdkPixbuf.Pixbuf.new_from_file_at_size(local_path, -1, 336) # Resizes the screenshot height while preserving aspect ratio
+                    image.set_from_pixbuf(pb)
                 except Exception:
-                    image.set_from_icon_name('image-x-generic', Gtk.IconSize.MENU)
+                    image.set_from_icon_name('image-missing-symbolic', 6)
             else:
-                image.set_from_icon_name('image-x-generic', Gtk.IconSize.MENU)
+                image.set_from_icon_name('image-missing-symbolic', 6)
 
-    def _switch_screenshot(self, image, screenshots, dots, index, app_id):
-        # Update dots opacity
+
+    def _switch_screenshot(self, image, screenshots, dots, index_current, app_id, icon_previous, icon_next, direction=None):
+        self.index_current = index_current
+        if direction == "previous":
+            self.index_current -= 1
+        if direction == "next":
+            self.index_current += 1
+
+        if self.screenshot_loop == True:
+            if self.index_current < 0:
+                self.index_current = len(screenshots)-1
+            if self.index_current > len(screenshots)-1:
+                self.index_current = 0
+
+        self.index_current = max(0, min(self.index_current, len(screenshots)-1)) # Security in case the position is not in the list
+
+        self._screenshot_navigation_update(screenshots, icon_previous, icon_next, dots)
+
+        # Load the new screenshot
+        self._load_screenshot(image, screenshots[self.index_current], app_id)
+        print("Page",self.index_current,"out of",len(screenshots)-1)
+
+    def _screenshot_navigation_update(self, screenshots, icon_previous, icon_next, dots):
         for i, dot in enumerate(dots):
             # Get the bullet label from the event box
             bullet = dot.get_children()[0]
-            bullet.set_opacity(1.0 if i == index else 0.3)
-
-        # Load the new screenshot
-        self._load_screenshot(image, screenshots[index], app_id)
+            if i == self.index_current:
+                bullet.get_style_context().add_class("active")
+            else:
+                bullet.get_style_context().remove_class("active")
+            
+        if self.screenshot_loop == False:
+            if self.index_current == 0:
+                icon_previous.get_style_context().add_class("dim-label")
+                icon_previous.get_style_context().remove_class("hover-event")
+            else:
+                icon_previous.get_style_context().remove_class("dim-label")
+            if self.index_current == len(screenshots)-1:
+                icon_next.get_style_context().add_class("dim-label")
+                icon_next.get_style_context().remove_class("hover-event")
+            else:
+                icon_next.get_style_context().remove_class("dim-label")
+        if len(screenshots)-1 == 0:
+                icon_previous.set_opacity(0)
+                icon_next.set_opacity(0)
 
     def _create_details_window(self, details):
         """Create and configure the main details window."""
         self.details_window = Gtk.Window(title=f"{details['name']}")
-        self.details_window.set_default_size(900, 600)
+        self.details_window.set_default_size(900, 700)
 
         # Set header bar
         header_bar = Gtk.HeaderBar(
-            title=f"{details['name']}",
-            subtitle="List of resources selectively granted to the application"
+            title=f"About {details['name']}"
         )
         header_bar.set_show_close_button(True)
         self.details_window.set_titlebar(header_bar)
 
         # Create main container
-        box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        box_outer.set_border_width(20)
-        box_outer.set_border_width(0)
+        box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         self.details_window.add(box_outer)
 
         return box_outer
@@ -4413,8 +4543,7 @@ class MainWindow(Gtk.Window):
         info_box.pack_start(middle_column, True, True, 0)
         info_box.pack_start(right_column, False, True, 0)
 
-        content_box.pack_start(info_box, False, True, 16)
-        content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+        content_box.pack_start(info_box, False, True, 0)
 
     def _create_text_section(self, title, text):
         """Create a text section with title and content."""
@@ -4538,12 +4667,16 @@ class MainWindow(Gtk.Window):
 
         # Create content area
         content_box = self._create_content_area(box_outer)
+        content_main = Gtk.Box(margin_top=32, margin_bottom=16, orientation=Gtk.Orientation.VERTICAL, valign=True)
+        content_main.get_style_context().add_class("details-content")
+        content_info = Gtk.Box(margin_top=16, margin_bottom=32, orientation=Gtk.Orientation.VERTICAL, valign=True)
+        content_info.get_style_context().add_class("details-content")
 
-        # Add icon section
         # self._create_icon_section(content_box, details)
 
         # Add info section
-        self._create_info_section(content_box, details, app)
+        self._create_info_section(content_main, details, app)
+        content_box.pack_start(content_main, False, True, 0)
 
         # Add screenshots
         screenshot_slideshow = self.create_screenshot_slideshow(details['screenshots'], details['id'])
@@ -4552,7 +4685,7 @@ class MainWindow(Gtk.Window):
 
         # Add summary section
         summary_section = self._create_text_section(details['summary'], details['description'])
-        content_box.pack_start(summary_section, False, True, 0)
+        content_info.pack_start(summary_section, False, True, 0)
         # content_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
         # Add URLs section
@@ -4575,7 +4708,9 @@ class MainWindow(Gtk.Window):
             f"https://flathub.org/apps/details/{details['id']}"), False, True, 0)
         urls_section.get_style_context().add_class("url-list")
         # content_box.pack_start(title_label, False, True, 4)
-        content_box.pack_start(urls_section, False, True, 0)
+        content_info.pack_start(urls_section, False, True, 0)
+
+        content_box.pack_end(content_info, False, True, 0)
 
         # Connect destroy signal and show window
         self.details_window.connect("destroy", lambda w: w.destroy())
