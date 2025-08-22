@@ -1,4 +1,4 @@
-name: Flatpost RPM Build - Fedora/Nobara 41
+name: Flatpost RPM Build - Fedora/Nobara 42
 
 on:
   workflow_call:
@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: fedora:41
+      image: fedora:42
 
     steps:
       - name: Install Git
@@ -66,18 +66,18 @@ jobs:
 
           rpmbuild -ba packaging/rpm/flatpost.spec
           mv ~/rpmbuild/RPMS/noarch/flatpost-${{ env.VERSION }}*.rpm \
-             ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc41.rpm
+             ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc42.rpm
           mv ~/rpmbuild/SRPMS/flatpost-${{ env.VERSION }}*.src.rpm \
-             ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc41.src.rpm
+             ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc42.src.rpm
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flatpost-${{ env.VERSION }}.fc41.rpm
-          path: ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc41.rpm
+          name: flatpost-${{ env.VERSION }}.fc42.rpm
+          path: ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc42.rpm
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flatpost-${{ env.VERSION }}.fc41.src.rpm
-          path: ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc41.src.rpm
+          name: flatpost-${{ env.VERSION }}.fc42.src.rpm
+          path: ~/rpmbuild/RPMS/flatpost-${{ env.VERSION }}.fc42.src.rpm

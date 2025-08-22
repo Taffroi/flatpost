@@ -5,19 +5,19 @@ on:
     types: [published]
 
 jobs:
-  fedora41-build:
-    name: Fedora 41 Build
-    uses: ./.github/workflows/build-flatpost-f41.yml
+  fedora42-build:
+    name: Fedora 42 Build
+    uses: ./.github/workflows/build-flatpost-f42.yml
     with:
       version: ${{ github.ref_name }}
       shasum: ${{ github.sha }}
-  fedora41-release:
-    name: Fedora 41 Release ${{ github.ref_name }}
-    needs: fedora41-build
+  fedora42-release:
+    name: Fedora 42 Release ${{ github.ref_name }}
+    needs: fedora42-build
     uses: ./.github/workflows/build-flatpost-publish-release.yml
     with:
       version: ${{ github.ref_name }}
-      file1: flatpost-${{ github.ref_name }}.fc41.rpm
-      name1: flatpost-${{ github.ref_name }}.fc41.rpm
-      file2: flatpost-${{ github.ref_name }}.fc41.src.rpm
-      name2: flatpost-${{ github.ref_name }}.fc41.src.rpm
+      file1: flatpost-${{ github.ref_name }}.fc42.rpm
+      name1: flatpost-${{ github.ref_name }}.fc42.rpm
+      file2: flatpost-${{ github.ref_name }}.fc42.src.rpm
+      name2: flatpost-${{ github.ref_name }}.fc42.src.rpm

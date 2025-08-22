@@ -11,9 +11,9 @@ jobs:
     name: Describe
     uses: ./.github/workflows/build-flatpost-version.yml
 
-  fedora41-build:
-    name: Fedora 41 Build
-    uses: ./.github/workflows/build-flatpost-f41.yml
+  fedora42-build:
+    name: Fedora 42 Build
+    uses: ./.github/workflows/build-flatpost-f42.yml
     needs: version
     with:
       version: ${{ needs.version.outputs.version }}
