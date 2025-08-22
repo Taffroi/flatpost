@@ -36,6 +36,7 @@ Requires: python3-fonttools
 Requires: python3-numpy
 
 Requires: adw-gtk3-theme
+Requires: adwaita-icon-theme
 Requires: flatpak
 Requires: glib2
 Requires: gtk3

@@ -1605,7 +1605,7 @@ class MainWindow(Gtk.Window):
                 update_all_button.set_label("  "+"Update all")
                 update_all_button.set_size_request(26, 26)  # 40x40 pixels
                 update_all_button.get_style_context().add_class("app-action-button")
-                update_all_icon = Gio.Icon.new_for_string('system-software-update-symbolic')
+                update_all_icon = Gio.Icon.new_for_string('software-update-available-symbolic')
                 update_all_button.set_image(Gtk.Image.new_from_gicon(update_all_icon, Gtk.IconSize.BUTTON))
                 update_all_button.connect("clicked", self.on_update_all_button_clicked)
                 update_all_button.set_always_show_image(True)
@@ -2148,7 +2148,7 @@ class MainWindow(Gtk.Window):
                 True,
                 app,
                 self.on_update_clicked,
-                'system-software-update-symbolic',
+                'software-update-available-symbolic',
                 None,
                 "Update"
             )
@@ -2204,7 +2204,7 @@ class MainWindow(Gtk.Window):
                     True,
                     app,
                     self.on_donate_clicked,
-                    'donate-symbolic',
+                    'emblem-favorite-symbolic',
                     None,
                     "Donate"
                 )
@@ -2214,7 +2214,7 @@ class MainWindow(Gtk.Window):
                     True,
                     app,
                     self.on_donate_clicked,
-                    'donate-symbolic',
+                    'emote-love-symbolic',
                     "Donate"
                 )
     
@@ -2224,7 +2224,7 @@ class MainWindow(Gtk.Window):
                 True,
                 app,
                 self.on_update_clicked,
-                'system-software-update-symbolic',
+                'software-update-available-symbolic',
                 "Update"
             )
 
@@ -4613,7 +4613,7 @@ class MainWindow(Gtk.Window):
 
         url_type_icon_name = "" # May be better as an array ?
         if "donation" in url_type:
-            url_type_icon_name = 'donate-symbolic'
+            url_type_icon_name = 'emote-love-symbolic'
         elif "homepage" in url_type:
             url_type_icon_name = 'go-home-symbolic'
         elif "bugtracker" in url_type:
