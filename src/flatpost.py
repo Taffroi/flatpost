@@ -2204,7 +2204,7 @@ class MainWindow(Gtk.Window):
                     True,
                     app,
                     self.on_donate_clicked,
-                    'emblem-favorite-symbolic',
+                    'emote-love-symbolic',
                     None,
                     "Donate"
                 )
