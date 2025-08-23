@@ -373,6 +373,10 @@ class MainWindow(Gtk.Window):
                 box-shadow: 2px 2px 6px rgba(0,0,0,0.05);
             }
 
+            .app-list-item-default-icon {
+                color: @window_fg_color;
+            }
+
             .app-list-header {
                 font-size: 18px;
                 font-weight: bold;
@@ -2062,6 +2066,7 @@ class MainWindow(Gtk.Window):
             Gio.Icon.new_for_string('package-x-generic-symbolic'),
             is_themed=True
         )
+        icon_widget.Gio.Icon.get_style_context().add_class("app-list-item-default-icon")
 
         if details['icon_filename']:
             icon_path = Path(f"{details['icon_path_128']}/{details['icon_filename']}")
@@ -4553,9 +4558,13 @@ class MainWindow(Gtk.Window):
         """Create a text section with title and content."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
 
+        if not isinstance(text,str):
+            text = "No description provided.\n"
+
         title_label = Gtk.Label(label=f"{title}")
         title_label.get_style_context().add_class("title-3")
         title_label.set_xalign(0)
+        box.pack_start(title_label, False, True, 0)
 
         text_view = Gtk.TextView()
         text_view.set_editable(False)
@@ -4604,7 +4613,6 @@ class MainWindow(Gtk.Window):
             buffer.set_text(text)
             # buffer.set_text(e)
 
-        box.pack_start(title_label, False, True, 0)
         box.pack_start(text_view, True, True, 0)
         return box
 
@@ -4683,9 +4691,10 @@ class MainWindow(Gtk.Window):
         content_box.pack_start(content_main, False, True, 0)
 
         # Add screenshots
-        screenshot_slideshow = self.create_screenshot_slideshow(details['screenshots'], details['id'])
-        screenshot_slideshow.set_border_width(0)
-        content_box.pack_start(screenshot_slideshow, False, True, 0)
+        if len(details['screenshots']) >= 1: # To prevent apps with no screenshot from crashing Flatpost
+           screenshot_slideshow = self.create_screenshot_slideshow(details['screenshots'], details['id'])
+           screenshot_slideshow.set_border_width(0)
+           content_box.pack_start(screenshot_slideshow, False, True, 0)
 
         # Add summary section
         summary_section = self._create_text_section(details['summary'], details['description'])
