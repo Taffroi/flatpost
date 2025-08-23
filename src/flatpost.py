@@ -239,6 +239,10 @@ class MainWindow(Gtk.Window):
                 border-bottom: 1px solid mix(currentColor,@window_bg_color,0.86);
             }
 
+            dialog button label {
+                padding: 8px 0;
+            }
+
             button.titlebutton {
                 min-height: 24px;
                 min-width: 24px;
