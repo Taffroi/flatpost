@@ -357,15 +357,15 @@ class MainWindow(Gtk.Window):
 
             .app-list-item {
                 padding: 24px 32px;
-                margin: 4px 0;
+                margin: 5px 0;
                 border-radius: 16px;
-                background-color: @new_title_bg_color;
+                background-color: alpha(@card_bg_color,0.6);
                 border: 1px solid mix(currentColor,@window_bg_color,0.9);
                 transition: background-color 0.2s ease-out;
             }
 
             .app-list-item.hover-event {
-                background-color: mix(@new_title_bg_color,@sidebar_backdrop_color,0.85);
+                background-color: alpha(@card_bg_color,0.2);
                 box-shadow: 2px 2px 6px rgba(0,0,0,0.05);
             }
 
