@@ -373,10 +373,6 @@ class MainWindow(Gtk.Window):
                 box-shadow: 2px 2px 6px rgba(0,0,0,0.05);
             }
 
-            .app-list-item-default-icon {
-                color: @window_fg_color;
-            }
-
             .app-list-header {
                 font-size: 18px;
                 font-weight: bold;
@@ -2066,7 +2062,6 @@ class MainWindow(Gtk.Window):
             Gio.Icon.new_for_string('package-x-generic-symbolic'),
             is_themed=True
         )
-        icon_widget.Gio.Icon.get_style_context().add_class("app-list-item-default-icon")
 
         if details['icon_filename']:
             icon_path = Path(f"{details['icon_path_128']}/{details['icon_filename']}")
