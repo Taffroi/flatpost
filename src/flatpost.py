@@ -239,6 +239,10 @@ class MainWindow(Gtk.Window):
                 border-bottom: 1px solid mix(currentColor,@window_bg_color,0.86);
             }
 
+            dialog button label {
+                padding: 8px 0;
+            }
+
             button.titlebutton {
                 min-height: 24px;
                 min-width: 24px;
@@ -357,15 +361,15 @@ class MainWindow(Gtk.Window):
 
             .app-list-item {
                 padding: 24px 32px;
-                margin: 4px 0;
+                margin: 5px 0;
                 border-radius: 16px;
-                background-color: @new_title_bg_color;
+                background-color: alpha(@card_bg_color,0.6);
                 border: 1px solid mix(currentColor,@window_bg_color,0.9);
                 transition: background-color 0.2s ease-out;
             }
 
             .app-list-item.hover-event {
-                background-color: mix(@new_title_bg_color,@sidebar_backdrop_color,0.85);
+                background-color: alpha(@card_bg_color,0.2);
                 box-shadow: 2px 2px 6px rgba(0,0,0,0.05);
             }
 
@@ -2204,7 +2208,7 @@ class MainWindow(Gtk.Window):
                     True,
                     app,
                     self.on_donate_clicked,
-                    'emblem-favorite-symbolic',
+                    'emote-love-symbolic',
                     None,
                     "Donate"
                 )
@@ -4549,9 +4553,13 @@ class MainWindow(Gtk.Window):
         """Create a text section with title and content."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
 
+        if not isinstance(text,str):
+            text = "No description provided.\n"
+
         title_label = Gtk.Label(label=f"{title}")
         title_label.get_style_context().add_class("title-3")
         title_label.set_xalign(0)
+        box.pack_start(title_label, False, True, 0)
 
         text_view = Gtk.TextView()
         text_view.set_editable(False)
@@ -4600,7 +4608,6 @@ class MainWindow(Gtk.Window):
             buffer.set_text(text)
             # buffer.set_text(e)
 
-        box.pack_start(title_label, False, True, 0)
         box.pack_start(text_view, True, True, 0)
         return box
 
@@ -4679,9 +4686,10 @@ class MainWindow(Gtk.Window):
         content_box.pack_start(content_main, False, True, 0)
 
         # Add screenshots
-        screenshot_slideshow = self.create_screenshot_slideshow(details['screenshots'], details['id'])
-        screenshot_slideshow.set_border_width(0)
-        content_box.pack_start(screenshot_slideshow, False, True, 0)
+        if len(details['screenshots']) >= 1: # To prevent apps with no screenshot from crashing Flatpost
+           screenshot_slideshow = self.create_screenshot_slideshow(details['screenshots'], details['id'])
+           screenshot_slideshow.set_border_width(0)
+           content_box.pack_start(screenshot_slideshow, False, True, 0)
 
         # Add summary section
         summary_section = self._create_text_section(details['summary'], details['description'])
